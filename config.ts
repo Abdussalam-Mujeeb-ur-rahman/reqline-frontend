@@ -1,7 +1,7 @@
 // Configuration for the Reqline Parser Frontend
 
 const config = {
-  apiUrl: import.meta.env.VITE_API_URL || "http://localhost:3000",
+  apiUrl: import.meta.env.VITE_API_URL || "https://reqline-cgup.onrender.com",
   appName: "Reqline Parser",
   appDescription: "Parse and execute HTTP requests using custom syntax",
   toastDuration: 3000,
