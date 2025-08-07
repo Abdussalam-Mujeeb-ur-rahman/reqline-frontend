@@ -29,10 +29,10 @@ export function sanitizeInput(input: string): string {
   const cleaned = input.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, "");
 
   // Sanitize with DOMPurify - only remove HTML tags, keep content
-  return DOMPurify.sanitize(cleaned, { 
-    ALLOWED_TAGS: [], 
+  return DOMPurify.sanitize(cleaned, {
+    ALLOWED_TAGS: [],
     ALLOWED_ATTR: [],
-    KEEP_CONTENT: true 
+    KEEP_CONTENT: true,
   });
 }
 
@@ -144,7 +144,52 @@ export function createSafeErrorMessage(error: unknown): string {
   }
 
   if (error && typeof error === "object") {
-    // Don't expose internal error details
+    // Handle axios error responses with specific backend error messages
+    if ("response" in error && error.response && typeof error.response === "object") {
+      const response = error.response as any;
+      
+      // Check if backend returned a specific error message
+      if (response.data && typeof response.data === "object") {
+        // Handle different backend error response formats
+        if (response.data.message && typeof response.data.message === "string") {
+          return sanitizeInput(response.data.message);
+        }
+        if (response.data.error && typeof response.data.error === "string") {
+          return sanitizeInput(response.data.error);
+        }
+        if (response.data.detail && typeof response.data.detail === "string") {
+          return sanitizeInput(response.data.detail);
+        }
+      }
+      
+      // Handle HTTP status codes with specific messages
+      if (response.status) {
+        switch (response.status) {
+          case 400:
+            return "Invalid request format. Please check your Reqline syntax.";
+          case 401:
+            return "Authentication required. Please check your credentials.";
+          case 403:
+            return "Access denied. You don't have permission to perform this action.";
+          case 404:
+            return "API endpoint not found. Please check the URL.";
+          case 429:
+            return "Too many requests. Please wait a moment before trying again.";
+          case 500:
+            return "Server error. Please try again later.";
+          case 502:
+            return "Bad gateway. The server is temporarily unavailable.";
+          case 503:
+            return "Service unavailable. Please try again later.";
+          case 504:
+            return "Gateway timeout. The request took too long to process.";
+          default:
+            return `Request failed with status code ${response.status}`;
+        }
+      }
+    }
+
+    // Handle axios error messages
     if ("message" in error && typeof error.message === "string") {
       const message = error.message.toLowerCase();
 
@@ -165,6 +210,12 @@ export function createSafeErrorMessage(error: unknown): string {
 
       if (message.includes("network") || message.includes("connection")) {
         return "Network error. Please check your connection and try again.";
+      }
+
+      // For axios errors, try to extract the actual error message
+      if (message.includes("request failed with status code")) {
+        // This will be handled by the response.status check above
+        return "Request failed. Please check your input and try again.";
       }
 
       return sanitizeInput(error.message);

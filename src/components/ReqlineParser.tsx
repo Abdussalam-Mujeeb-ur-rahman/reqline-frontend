@@ -149,6 +149,11 @@ const ReqlineParser = () => {
     } catch (err: unknown) {
       const safeErrorMessage = createSafeErrorMessage(err);
       setError(safeErrorMessage);
+      
+      // Log the full error for debugging (only in development)
+      if (config.isDevelopment) {
+        console.error('API Error:', err);
+      }
     } finally {
       setIsLoading(false);
     }
