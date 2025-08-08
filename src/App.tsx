@@ -77,7 +77,7 @@ function App() {
             <p className="text-blue-200 mb-3 sm:mb-4 text-sm sm:text-base">
               Built with modern web technologies
             </p>
-            <div className="flex flex-wrap items-center justify-center gap-3 sm:gap-6 text-xs sm:text-sm text-blue-300">
+            <div className="flex flex-wrap items-center justify-center gap-3 sm:gap-6 text-xs sm:text-sm text-blue-300 mb-4 sm:mb-6">
               <span className="flex items-center gap-1 sm:gap-2">
                 <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-blue-400 rounded-full"></div>
                 React 19
@@ -94,6 +94,29 @@ function App() {
                 <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-cyan-400 rounded-full"></div>
                 Tailwind CSS v4
               </span>
+            </div>
+            
+            {/* Buy Me a Coffee Section */}
+            <div className="border-t border-white/10 pt-4 sm:pt-6">
+              <p className="text-blue-200 mb-3 sm:mb-4 text-sm sm:text-base">
+                If you find this tool helpful, consider supporting the developer
+              </p>
+              <a
+                href="https://buymeacoffee.com/allahisrabb"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 sm:gap-3 px-4 sm:px-6 py-2 sm:py-3 bg-gradient-to-r from-orange-500 to-yellow-500 hover:from-orange-600 hover:to-yellow-600 text-white font-medium rounded-lg transition-all duration-300 transform hover:scale-105 hover:shadow-lg"
+              >
+                <svg
+                  className="w-4 h-4 sm:w-5 sm:h-5"
+                  fill="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path d="M2 21h18v-2H2v2zm6.4-6.8c.4-.4.4-1 0-1.4L7.6 12l1.4-1.4c.4-.4.4-1 0-1.4s-1-.4-1.4 0L4.8 12l1.4 1.4c.4.4 1 .4 1.4 0zm6.4 0c.4-.4.4-1 0-1.4L14 12l1.4-1.4c.4-.4.4-1 0-1.4s-1-.4-1.4 0L11.2 12l1.4 1.4c.4.4 1 .4 1.4 0z"/>
+                  <path d="M20 3H4v10c0 2.21 1.79 4 4 4h6c2.21 0 4-1.79 4-4v-3h2c1.11 0 2-.89 2-2V5c0-1.11-.89-2-2-2zM20 8h-2V5h2v3z"/>
+                </svg>
+                <span className="text-sm sm:text-base">☕ Buy Me a Coffee</span>
+              </a>
             </div>
           </div>
         </div>
