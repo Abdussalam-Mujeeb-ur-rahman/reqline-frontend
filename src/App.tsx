@@ -95,7 +95,7 @@ function App() {
                 Tailwind CSS v4
               </span>
             </div>
-            
+
             {/* Buy Me a Coffee Section */}
             <div className="border-t border-white/10 pt-4 sm:pt-6">
               <p className="text-blue-200 mb-3 sm:mb-4 text-sm sm:text-base">
@@ -112,8 +112,8 @@ function App() {
                   fill="currentColor"
                   viewBox="0 0 24 24"
                 >
-                  <path d="M2 21h18v-2H2v2zm6.4-6.8c.4-.4.4-1 0-1.4L7.6 12l1.4-1.4c.4-.4.4-1 0-1.4s-1-.4-1.4 0L4.8 12l1.4 1.4c.4.4 1 .4 1.4 0zm6.4 0c.4-.4.4-1 0-1.4L14 12l1.4-1.4c.4-.4.4-1 0-1.4s-1-.4-1.4 0L11.2 12l1.4 1.4c.4.4 1 .4 1.4 0z"/>
-                  <path d="M20 3H4v10c0 2.21 1.79 4 4 4h6c2.21 0 4-1.79 4-4v-3h2c1.11 0 2-.89 2-2V5c0-1.11-.89-2-2-2zM20 8h-2V5h2v3z"/>
+                  <path d="M2 21h18v-2H2v2zm6.4-6.8c.4-.4.4-1 0-1.4L7.6 12l1.4-1.4c.4-.4.4-1 0-1.4s-1-.4-1.4 0L4.8 12l1.4 1.4c.4.4 1 .4 1.4 0zm6.4 0c.4-.4.4-1 0-1.4L14 12l1.4-1.4c.4-.4.4-1 0-1.4s-1-.4-1.4 0L11.2 12l1.4 1.4c.4.4 1 .4 1.4 0z" />
+                  <path d="M20 3H4v10c0 2.21 1.79 4 4 4h6c2.21 0 4-1.79 4-4v-3h2c1.11 0 2-.89 2-2V5c0-1.11-.89-2-2-2zM20 8h-2V5h2v3z" />
                 </svg>
                 <span className="text-sm sm:text-base">☕ Buy Me a Coffee</span>
               </a>
