@@ -149,10 +149,10 @@ const ReqlineParser = () => {
     } catch (err: unknown) {
       const safeErrorMessage = createSafeErrorMessage(err);
       setError(safeErrorMessage);
-      
+
       // Log the full error for debugging (only in development)
       if (config.isDevelopment) {
-        console.error('API Error:', err);
+        console.error("API Error:", err);
       }
     } finally {
       setIsLoading(false);
@@ -179,6 +179,21 @@ const ReqlineParser = () => {
       setToast({ message: "Result copied as JSON!", type: "success" });
     } catch {
       setToast({ message: "Failed to copy result", type: "error" });
+    }
+  };
+
+  const copyResponseData = async () => {
+    if (!result) return;
+
+    try {
+      const sanitizedResponseData = sanitizeResponseData(
+        result.response.response_data
+      );
+      const jsonString = JSON.stringify(sanitizedResponseData, null, 2);
+      await navigator.clipboard.writeText(jsonString);
+      setToast({ message: "Response data copied!", type: "success" });
+    } catch {
+      setToast({ message: "Failed to copy response data", type: "error" });
     }
   };
 
@@ -507,10 +522,20 @@ const ReqlineParser = () => {
             </div>
 
             <div>
-              <h4 className="text-xs sm:text-sm font-semibold text-blue-200 mb-3 sm:mb-4 flex items-center gap-2">
-                <FileText className="w-3 h-3 sm:w-4 sm:h-4" />
-                Response Data
-              </h4>
+              <div className="flex items-center justify-between mb-3 sm:mb-4">
+                <h4 className="text-xs sm:text-sm font-semibold text-blue-200 flex items-center gap-2">
+                  <FileText className="w-3 h-3 sm:w-4 sm:h-4" />
+                  Response Data
+                </h4>
+                <button
+                  onClick={copyResponseData}
+                  className="p-2 sm:p-3 text-blue-300 hover:text-white hover:bg-white/10 rounded-xl transition-all duration-300"
+                  title="Copy response data"
+                  aria-label="Copy response data"
+                >
+                  <Copy size={16} />
+                </button>
+              </div>
               <div
                 className="code-block text-xs sm:text-sm"
                 style={{ maxHeight: config.maxResponseHeight }}
