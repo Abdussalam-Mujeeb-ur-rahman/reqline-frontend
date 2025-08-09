@@ -145,13 +145,20 @@ export function createSafeErrorMessage(error: unknown): string {
 
   if (error && typeof error === "object") {
     // Handle axios error responses with specific backend error messages
-    if ("response" in error && error.response && typeof error.response === "object") {
+    if (
+      "response" in error &&
+      error.response &&
+      typeof error.response === "object"
+    ) {
       const response = error.response as any;
-      
+
       // Check if backend returned a specific error message
       if (response.data && typeof response.data === "object") {
         // Handle different backend error response formats
-        if (response.data.message && typeof response.data.message === "string") {
+        if (
+          response.data.message &&
+          typeof response.data.message === "string"
+        ) {
           return sanitizeInput(response.data.message);
         }
         if (response.data.error && typeof response.data.error === "string") {
@@ -161,7 +168,7 @@ export function createSafeErrorMessage(error: unknown): string {
           return sanitizeInput(response.data.detail);
         }
       }
-      
+
       // Handle HTTP status codes with specific messages
       if (response.status) {
         switch (response.status) {
