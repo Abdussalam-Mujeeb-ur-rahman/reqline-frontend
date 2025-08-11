@@ -1,5 +1,4 @@
-import { useState, useCallback } from "react";
-import { useEffect } from "react";
+import { useState, useCallback, useEffect } from "react";
 import {
   Send,
   Copy,
@@ -43,6 +42,7 @@ interface RequestData {
   body: Record<string, unknown>;
   headers: Record<string, unknown>;
   full_url: string;
+  cookies_sent?: string[];
 }
 
 interface ResponseData {
@@ -51,6 +51,7 @@ interface ResponseData {
   request_start_timestamp: number;
   request_stop_timestamp: number;
   response_data: unknown;
+  cookies_received?: string[];
 }
 
 interface ApiResponse {
@@ -218,6 +219,19 @@ const ReqlineParser = () => {
       // Sanitize response data
       const sanitizedData = sanitizeResponseData(response.data);
       setResult(sanitizedData as ApiResponse);
+
+      // Auto-scroll to response details after successful response
+      setTimeout(() => {
+        const responseDetailsSection = document.getElementById(
+          "response-details-section"
+        );
+        if (responseDetailsSection) {
+          responseDetailsSection.scrollIntoView({
+            behavior: "smooth",
+            block: "start",
+          });
+        }
+      }, 100);
     } catch (err: unknown) {
       const safeErrorMessage = createSafeErrorMessage(err);
       setError(safeErrorMessage);
@@ -751,7 +765,10 @@ const ReqlineParser = () => {
 
       {/* Results Display */}
       {result && (
-        <div className="space-y-4 sm:space-y-6 lg:space-y-8 animate-fade-in-up">
+        <div
+          id="results-section"
+          className="space-y-4 sm:space-y-6 lg:space-y-8 animate-fade-in-up"
+        >
           {/* Copy JSON Button */}
           <div className="flex justify-end">
             <button
@@ -825,12 +842,31 @@ const ReqlineParser = () => {
                     {JSON.stringify(result.request.body, null, 2)}
                   </div>
                 </div>
+
+                {result.request.cookies_sent && result.request.cookies_sent.length > 0 && (
+                  <div>
+                    <h4 className="text-xs sm:text-sm font-semibold text-blue-200 mb-2 sm:mb-3 flex items-center gap-2">
+                      <Settings className="w-3 h-3 sm:w-4 sm:h-4" />
+                      Cookies Sent
+                    </h4>
+                    <div className="code-block text-xs sm:text-sm">
+                      {result.request.cookies_sent.map((cookie, index) => (
+                        <div key={index} className="text-green-300">
+                          {cookie}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>
 
           {/* Response Details */}
-          <div className="glass-dark rounded-xl sm:rounded-2xl p-3 sm:p-6 lg:p-8 border border-white/10">
+          <div
+            id="response-details-section"
+            className="glass-dark rounded-xl sm:rounded-2xl p-3 sm:p-6 lg:p-8 border border-white/10"
+          >
             <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 mb-4 sm:mb-6 lg:mb-8">
               <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-primary rounded-xl flex items-center justify-center shadow-lg">
                 <ArrowRight className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
@@ -918,6 +954,22 @@ const ReqlineParser = () => {
                 {JSON.stringify(result.response.response_data, null, 2)}
               </div>
             </div>
+
+            {result.response.cookies_received && result.response.cookies_received.length > 0 && (
+              <div>
+                <h4 className="text-xs sm:text-sm font-semibold text-blue-200 mb-3 sm:mb-4 flex items-center gap-2">
+                  <Settings className="w-3 h-3 sm:w-4 sm:h-4" />
+                  Cookies Received
+                </h4>
+                <div className="code-block text-xs sm:text-sm">
+                  {result.response.cookies_received.map((cookie, index) => (
+                    <div key={index} className="text-green-300">
+                      {cookie}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
