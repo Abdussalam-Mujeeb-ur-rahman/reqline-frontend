@@ -1,4 +1,5 @@
 import { useState, useCallback } from "react";
+import { useEffect } from "react";
 import {
   Send,
   Copy,
@@ -18,6 +19,11 @@ import {
   Download,
   AlertTriangle,
   Package,
+  Plus,
+  Trash2,
+  Save,
+  Key,
+  ArrowUp,
 } from "lucide-react";
 import axios from "axios";
 import LoadingSpinner from "./LoadingSpinner";
@@ -52,16 +58,82 @@ interface ApiResponse {
   response: ResponseData;
 }
 
+interface VaultItem {
+  id: string;
+  name: string;
+  value: string;
+  description?: string;
+  createdAt: number;
+}
+
 const ReqlineParser = () => {
   const [reqline, setReqline] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [result, setResult] = useState<ApiResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [showExamples, setShowExamples] = useState(true);
+  const [showVault, setShowVault] = useState(false);
+  const [showScrollToTop, setShowScrollToTop] = useState(false);
+  const [vaultItems, setVaultItems] = useState<VaultItem[]>([]);
+  const [newVaultItem, setNewVaultItem] = useState({
+    name: "",
+    value: "",
+    description: "",
+  });
   const [toast, setToast] = useState<{
     message: string;
     type: "success" | "error";
   } | null>(null);
+
+  // Keywords for Reqline syntax with smart templates
+  const keywords = [
+    { text: "HTTP", template: "HTTP GET" },
+    { text: "URL", template: "URL https://dummyjson.com/quotes/3" },
+    { text: "HEADERS", template: 'HEADERS {"Authorization": "Bearer token"}' },
+    { text: "BODY", template: "BODY {}" },
+    { text: "QUERY", template: 'QUERY {"query1": 1920933}' },
+  ];
+
+  // Check if a keyword is present in the current input
+  const isKeywordPresent = (keyword: string): boolean => {
+    return reqline.toUpperCase().includes(keyword.toUpperCase());
+  };
+
+  // Handle keyword click to insert template with smart delimiter logic
+  const handleKeywordClick = (template: string, keywordText: string) => {
+    const textarea = document.querySelector(
+      'textarea[aria-label="Reqline syntax input"]'
+    ) as HTMLTextAreaElement;
+    if (!textarea) return;
+
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const currentValue = reqline;
+
+    let insertText = template;
+
+    // Smart delimiter logic
+    if (currentValue.trim() !== "") {
+      // If there's already content, add delimiter before the keyword
+      insertText = " | " + template;
+    }
+
+    // Insert template at cursor position
+    const newValue =
+      currentValue.substring(0, start) +
+      insertText +
+      currentValue.substring(end);
+    setReqline(newValue);
+
+    // Set cursor position after inserted text
+    setTimeout(() => {
+      textarea.focus();
+      textarea.setSelectionRange(
+        start + insertText.length,
+        start + insertText.length
+      );
+    }, 0);
+  };
 
   const examples = [
     {
@@ -212,6 +284,91 @@ const ReqlineParser = () => {
     setToast(null);
   }, []);
 
+  // Vault management functions
+  const addVaultItem = () => {
+    if (!newVaultItem.name.trim() || !newVaultItem.value.trim()) {
+      setToast({ message: "Name and value are required", type: "error" });
+      return;
+    }
+
+    const item: VaultItem = {
+      id: Date.now().toString(),
+      name: newVaultItem.name.trim(),
+      value: newVaultItem.value.trim(),
+      description: newVaultItem.description.trim() || undefined,
+      createdAt: Date.now(),
+    };
+
+    setVaultItems((prev) => [...prev, item]);
+    setNewVaultItem({ name: "", value: "", description: "" });
+    setToast({ message: "Item added to vault", type: "success" });
+  };
+
+  const removeVaultItem = (id: string) => {
+    setVaultItems((prev) => prev.filter((item) => item.id !== id));
+    setToast({ message: "Item removed from vault", type: "success" });
+  };
+
+  const useVaultItem = (item: VaultItem) => {
+    const textarea = document.querySelector(
+      'textarea[aria-label="Reqline syntax input"]'
+    ) as HTMLTextAreaElement;
+    if (!textarea) return;
+
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const currentValue = reqline;
+
+    // Insert vault value at cursor position
+    const newValue =
+      currentValue.substring(0, start) +
+      item.value +
+      currentValue.substring(end);
+    setReqline(newValue);
+
+    // Set cursor position after inserted value
+    setTimeout(() => {
+      textarea.focus();
+      textarea.setSelectionRange(
+        start + item.value.length,
+        start + item.value.length
+      );
+    }, 0);
+
+    setToast({ message: `Inserted ${item.name}`, type: "success" });
+  };
+
+  const copyVaultItem = async (item: VaultItem) => {
+    try {
+      await navigator.clipboard.writeText(item.value);
+      setToast({
+        message: `${item.name} copied to clipboard`,
+        type: "success",
+      });
+    } catch {
+      setToast({ message: "Failed to copy to clipboard", type: "error" });
+    }
+  };
+
+  // Scroll to top functionality
+  useEffect(() => {
+    const handleScroll = () => {
+      const scrollTop =
+        window.pageYOffset || document.documentElement.scrollTop;
+      setShowScrollToTop(scrollTop > 300);
+    };
+
+    window.addEventListener("scroll", handleScroll);
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
+
+  const scrollToTop = () => {
+    window.scrollTo({
+      top: 0,
+      behavior: "smooth",
+    });
+  };
+
   return (
     <div className="max-w-6xl mx-auto space-y-4 sm:space-y-6 lg:space-y-8">
       {/* Toast Notification */}
@@ -222,6 +379,18 @@ const ReqlineParser = () => {
           onClose={() => setToast(null)}
           duration={config.toastDuration}
         />
+      )}
+
+      {/* Scroll to Top Button */}
+      {showScrollToTop && (
+        <button
+          onClick={scrollToTop}
+          className="fixed bottom-6 right-6 z-50 w-12 h-12 bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 text-white rounded-full shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-110 flex items-center justify-center"
+          title="Scroll to top"
+          aria-label="Scroll to top"
+        >
+          <ArrowUp size={20} />
+        </button>
       )}
 
       {/* Main Input Section */}
@@ -244,6 +413,28 @@ const ReqlineParser = () => {
           onSubmit={handleSubmit}
           className="space-y-3 sm:space-y-4 lg:space-y-6"
         >
+          {/* Keyword Suggestions */}
+          <div className="flex flex-wrap gap-2 sm:gap-3">
+            {keywords.map((keyword, index) => (
+              <button
+                key={index}
+                type="button"
+                onClick={() =>
+                  handleKeywordClick(keyword.template, keyword.text)
+                }
+                className={`px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-mono font-semibold transition-all duration-300 hover:scale-105 ${
+                  isKeywordPresent(keyword.text)
+                    ? "bg-green-500/20 text-green-300 border border-green-500/30"
+                    : "bg-red-500/20 text-red-300 border border-red-500/30 hover:bg-red-500/30"
+                }`}
+                title={`Insert ${keyword.template}`}
+                aria-label={`Insert ${keyword.template}`}
+              >
+                {keyword.text}
+              </button>
+            ))}
+          </div>
+
           <div className="relative">
             <textarea
               value={reqline}
@@ -273,7 +464,22 @@ const ReqlineParser = () => {
 
             <button
               type="button"
-              onClick={() => setShowExamples(!showExamples)}
+              onClick={() => {
+                const newShowExamples = !showExamples;
+                setShowExamples(newShowExamples);
+                if (newShowExamples) {
+                  setTimeout(() => {
+                    const examplesSection =
+                      document.getElementById("examples-section");
+                    if (examplesSection) {
+                      examplesSection.scrollIntoView({
+                        behavior: "smooth",
+                        block: "start",
+                      });
+                    }
+                  }, 100);
+                }
+              }}
               className="btn-secondary flex items-center justify-center gap-2 text-xs sm:text-sm lg:text-base"
               aria-label={showExamples ? "Hide examples" : "Show examples"}
             >
@@ -294,13 +500,41 @@ const ReqlineParser = () => {
               <RotateCcw size={16} />
               Clear
             </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                const newShowVault = !showVault;
+                setShowVault(newShowVault);
+                if (newShowVault) {
+                  setTimeout(() => {
+                    const vaultSection =
+                      document.getElementById("vault-section");
+                    if (vaultSection) {
+                      vaultSection.scrollIntoView({
+                        behavior: "smooth",
+                        block: "start",
+                      });
+                    }
+                  }, 100);
+                }
+              }}
+              className="btn-secondary flex items-center justify-center gap-2 text-xs sm:text-sm lg:text-base"
+              aria-label={showVault ? "Hide vault" : "Show vault"}
+            >
+              <Key size={16} />
+              Vault {showVault ? "(Hide)" : "(Show)"}
+            </button>
           </div>
         </form>
       </div>
 
       {/* Examples Section */}
       {showExamples && (
-        <div className="glass-dark rounded-xl sm:rounded-2xl p-3 sm:p-6 lg:p-8 animate-slide-in-right border border-white/10">
+        <div
+          id="examples-section"
+          className="glass-dark rounded-xl sm:rounded-2xl p-3 sm:p-6 lg:p-8 animate-slide-in-right border border-white/10"
+        >
           <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 mb-4 sm:mb-8">
             <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-accent rounded-xl flex items-center justify-center shadow-lg">
               <Info className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
@@ -351,6 +585,147 @@ const ReqlineParser = () => {
                 </div>
               </div>
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* Vault Section */}
+      {showVault && (
+        <div
+          id="vault-section"
+          className="glass-dark rounded-xl sm:rounded-2xl p-3 sm:p-6 lg:p-8 animate-slide-in-right border border-white/10"
+        >
+          <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 mb-4 sm:mb-8">
+            <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-r from-purple-500 to-pink-500 rounded-xl flex items-center justify-center shadow-lg">
+              <Key className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
+            </div>
+            <div>
+              <h3 className="text-lg sm:text-xl lg:text-2xl font-bold text-white">
+                Secure Vault
+              </h3>
+              <p className="text-blue-200 text-xs sm:text-sm lg:text-base">
+                Store and reuse tokens, keys, and other data
+              </p>
+            </div>
+          </div>
+
+          {/* Add New Item */}
+          <div className="bg-black/30 rounded-xl p-3 sm:p-6 border border-white/10 mb-4 sm:mb-6">
+            <h4 className="text-sm sm:text-base font-semibold text-white mb-3 sm:mb-4 flex items-center gap-2">
+              <Plus className="w-4 h-4" />
+              Add New Item
+            </h4>
+            <div className="grid gap-3 sm:gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                <input
+                  type="text"
+                  placeholder="Name (e.g., JWT Token)"
+                  value={newVaultItem.name}
+                  onChange={(e) =>
+                    setNewVaultItem((prev) => ({
+                      ...prev,
+                      name: e.target.value,
+                    }))
+                  }
+                  className="bg-black/40 border border-white/20 rounded-lg text-white placeholder-blue-300 text-xs sm:text-sm p-2 sm:p-3 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                />
+                <input
+                  type="text"
+                  placeholder="Description (optional)"
+                  value={newVaultItem.description}
+                  onChange={(e) =>
+                    setNewVaultItem((prev) => ({
+                      ...prev,
+                      description: e.target.value,
+                    }))
+                  }
+                  className="bg-black/40 border border-white/20 rounded-lg text-white placeholder-blue-300 text-xs sm:text-sm p-2 sm:p-3 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                />
+              </div>
+              <textarea
+                placeholder="Value (e.g., eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...)"
+                value={newVaultItem.value}
+                onChange={(e) =>
+                  setNewVaultItem((prev) => ({
+                    ...prev,
+                    value: e.target.value,
+                  }))
+                }
+                className="bg-black/40 border border-white/20 rounded-lg text-white placeholder-blue-300 text-xs sm:text-sm p-2 sm:p-3 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-none h-20"
+              />
+              <button
+                onClick={addVaultItem}
+                className="btn-primary flex items-center justify-center gap-2 text-xs sm:text-sm"
+              >
+                <Save size={16} />
+                Add to Vault
+              </button>
+            </div>
+          </div>
+
+          {/* Vault Items */}
+          <div className="space-y-3 sm:space-y-4">
+            {vaultItems.length === 0 ? (
+              <div className="text-center py-8 text-blue-200 text-sm">
+                No items in vault. Add your first item above.
+              </div>
+            ) : (
+              vaultItems.map((item) => (
+                <div
+                  key={item.id}
+                  className="bg-black/30 rounded-xl p-3 sm:p-4 border border-white/10 hover:bg-black/40 transition-all duration-300"
+                >
+                  <div className="flex items-start justify-between gap-3 sm:gap-4">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <h5 className="font-semibold text-white text-sm sm:text-base">
+                          {item.name}
+                        </h5>
+                        <span className="text-xs text-blue-300 bg-blue-500/20 px-2 py-1 rounded-full">
+                          {new Date(item.createdAt).toLocaleDateString()}
+                        </span>
+                      </div>
+                      {item.description && (
+                        <p className="text-blue-200 text-xs sm:text-sm mb-2">
+                          {item.description}
+                        </p>
+                      )}
+                      <div className="code-block text-xs break-all">
+                        {item.value.length > 50
+                          ? `${item.value.substring(0, 50)}...`
+                          : item.value}
+                      </div>
+                    </div>
+                    <div className="flex gap-2 flex-shrink-0">
+                      <button
+                        onClick={() => useVaultItem(item)}
+                        className="p-2 text-blue-300 hover:text-white hover:bg-white/10 rounded-lg transition-all duration-300"
+                        title="Insert into request"
+                        aria-label={`Insert ${item.name} into request`}
+                      >
+                        <ArrowRight size={16} />
+                      </button>
+                      <button
+                        onClick={() => copyVaultItem(item)}
+                        className="p-2 text-blue-300 hover:text-white hover:bg-white/10 rounded-lg transition-all duration-300"
+                        title="Copy to clipboard"
+                        aria-label={`Copy ${item.name} to clipboard`}
+                      >
+                        <Copy size={16} />
+                      </button>
+                      <button
+                        onClick={() => removeVaultItem(item.id)}
+                        className="p-2 text-red-300 hover:text-white hover:bg-red-500/20 rounded-lg transition-all duration-300"
+                        title="Remove from vault"
+                        aria-label={`Remove ${item.name} from vault`}
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))
+            )}
           </div>
         </div>
       )}
