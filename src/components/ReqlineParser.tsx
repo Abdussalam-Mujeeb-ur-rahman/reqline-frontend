@@ -843,21 +843,22 @@ const ReqlineParser = () => {
                   </div>
                 </div>
 
-                {result.request.cookies_sent && result.request.cookies_sent.length > 0 && (
-                  <div>
-                    <h4 className="text-xs sm:text-sm font-semibold text-blue-200 mb-2 sm:mb-3 flex items-center gap-2">
-                      <Settings className="w-3 h-3 sm:w-4 sm:h-4" />
-                      Cookies Sent
-                    </h4>
-                    <div className="code-block text-xs sm:text-sm">
-                      {result.request.cookies_sent.map((cookie, index) => (
-                        <div key={index} className="text-green-300">
-                          {cookie}
-                        </div>
-                      ))}
+                {result.request.cookies_sent &&
+                  result.request.cookies_sent.length > 0 && (
+                    <div>
+                      <h4 className="text-xs sm:text-sm font-semibold text-blue-200 mb-2 sm:mb-3 flex items-center gap-2">
+                        <Settings className="w-3 h-3 sm:w-4 sm:h-4" />
+                        Cookies Sent
+                      </h4>
+                      <div className="code-block text-xs sm:text-sm">
+                        {result.request.cookies_sent.map((cookie, index) => (
+                          <div key={index} className="text-green-300">
+                            {cookie}
+                          </div>
+                        ))}
+                      </div>
                     </div>
-                  </div>
-                )}
+                  )}
               </div>
             </div>
           </div>
@@ -955,21 +956,22 @@ const ReqlineParser = () => {
               </div>
             </div>
 
-            {result.response.cookies_received && result.response.cookies_received.length > 0 && (
-              <div>
-                <h4 className="text-xs sm:text-sm font-semibold text-blue-200 mb-3 sm:mb-4 flex items-center gap-2">
-                  <Settings className="w-3 h-3 sm:w-4 sm:h-4" />
-                  Cookies Received
-                </h4>
-                <div className="code-block text-xs sm:text-sm">
-                  {result.response.cookies_received.map((cookie, index) => (
-                    <div key={index} className="text-green-300">
-                      {cookie}
-                    </div>
-                  ))}
+            {result.response.cookies_received &&
+              result.response.cookies_received.length > 0 && (
+                <div>
+                  <h4 className="text-xs sm:text-sm font-semibold text-blue-200 mb-3 sm:mb-4 flex items-center gap-2">
+                    <Settings className="w-3 h-3 sm:w-4 sm:h-4" />
+                    Cookies Received
+                  </h4>
+                  <div className="code-block text-xs sm:text-sm">
+                    {result.response.cookies_received.map((cookie, index) => (
+                      <div key={index} className="text-green-300">
+                        {cookie}
+                      </div>
+                    ))}
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
           </div>
         </div>
       )}
