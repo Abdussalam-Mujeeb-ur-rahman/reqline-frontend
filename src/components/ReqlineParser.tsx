@@ -101,7 +101,7 @@ const ReqlineParser = () => {
   };
 
   // Handle keyword click to insert template with smart delimiter logic
-  const handleKeywordClick = (template: string, keywordText: string) => {
+  const handleKeywordClick = (template: string) => {
     const textarea = document.querySelector(
       'textarea[aria-label="Reqline syntax input"]'
     ) as HTMLTextAreaElement;
@@ -433,9 +433,7 @@ const ReqlineParser = () => {
               <button
                 key={index}
                 type="button"
-                onClick={() =>
-                  handleKeywordClick(keyword.template, keyword.text)
-                }
+                onClick={() => handleKeywordClick(keyword.template)}
                 className={`px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-mono font-semibold transition-all duration-300 hover:scale-105 ${
                   isKeywordPresent(keyword.text)
                     ? "bg-green-500/20 text-green-300 border border-green-500/30"
