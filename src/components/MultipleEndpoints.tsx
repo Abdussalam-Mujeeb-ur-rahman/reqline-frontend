@@ -101,6 +101,16 @@ const MultipleEndpoints = () => {
     description: "",
     reqline: "",
   });
+  const [newEndpointTestResult, setNewEndpointTestResult] = useState<{
+    isLoading: boolean;
+    result: any;
+    error: string | null;
+    executedAt?: number;
+  }>({
+    isLoading: false,
+    result: null,
+    error: null,
+  });
   const [editingEndpoint, setEditingEndpoint] = useState<string | null>(null);
   const [isRunningAll, setIsRunningAll] = useState(false);
   const [showDocumentation, setShowDocumentation] = useState(false);
@@ -318,6 +328,50 @@ const MultipleEndpoints = () => {
     saveSuiteToStorage(updatedSuite);
     setIsRunningAll(false);
     setToast({ message: "Execution stopped", type: "success" });
+  };
+
+  const testNewEndpoint = async (): Promise<void> => {
+    if (!newEndpoint.reqline.trim()) {
+      setToast({ message: "Please enter reqline syntax to test", type: "error" });
+      return;
+    }
+
+    setNewEndpointTestResult({
+      isLoading: true,
+      result: null,
+      error: null,
+    });
+
+    try {
+      const response = await axios.post(
+        `${config.apiUrl}/parse`,
+        {
+          reqline: newEndpoint.reqline.trim(),
+        },
+        {
+          timeout: 30000,
+        }
+      );
+
+      setNewEndpointTestResult({
+        isLoading: false,
+        result: response.data,
+        error: null,
+        executedAt: Date.now(),
+      });
+
+      setToast({ message: "Test completed successfully!", type: "success" });
+    } catch (error: any) {
+      const errorMessage = error.response?.data?.error || error.message || "Unknown error occurred";
+      setNewEndpointTestResult({
+        isLoading: false,
+        result: null,
+        error: errorMessage,
+        executedAt: Date.now(),
+      });
+
+      setToast({ message: "Test failed", type: "error" });
+    }
   };
 
   // Check if a keyword is present in the current input
@@ -679,24 +733,80 @@ const MultipleEndpoints = () => {
               }
               className="bg-black/40 border border-white/20 rounded-lg text-white placeholder-blue-300 text-xs sm:text-sm p-2 sm:p-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none h-20 font-mono"
             />
-            <button
-              onClick={() => {
-                if (newEndpoint.title && newEndpoint.reqline) {
-                  addEndpointToSuite(newEndpoint);
-                  setNewEndpoint({ title: "", description: "", reqline: "" });
-                } else {
-                  setToast({
-                    message: "Title and reqline are required",
-                    type: "error",
-                  });
-                }
-              }}
-              className="btn-primary flex items-center justify-center gap-2 text-xs sm:text-sm"
-            >
-              <Save size={16} />
-              Add to Test Suite
-            </button>
+            <div className="flex gap-2 sm:gap-3">
+              <button
+                onClick={testNewEndpoint}
+                disabled={newEndpointTestResult.isLoading || !newEndpoint.reqline.trim()}
+                className="btn-secondary flex items-center justify-center gap-2 text-xs sm:text-sm flex-1 disabled:opacity-50 disabled:cursor-not-allowed"
+                title="Test endpoint before adding"
+                aria-label="Test endpoint"
+              >
+                {newEndpointTestResult.isLoading ? (
+                  <LoadingSpinner size={16} />
+                ) : (
+                  <Zap size={16} />
+                )}
+                {newEndpointTestResult.isLoading ? "Testing..." : "Test Endpoint"}
+              </button>
+              <button
+                onClick={() => {
+                  if (newEndpoint.title && newEndpoint.reqline) {
+                    addEndpointToSuite(newEndpoint);
+                    setNewEndpoint({ title: "", description: "", reqline: "" });
+                    setNewEndpointTestResult({ isLoading: false, result: null, error: null });
+                  } else {
+                    setToast({
+                      message: "Title and reqline are required",
+                      type: "error",
+                    });
+                  }
+                }}
+                className="btn-primary flex items-center justify-center gap-2 text-xs sm:text-sm flex-1"
+              >
+                <Save size={16} />
+                Add to Test Suite
+              </button>
+            </div>
           </div>
+
+          {/* Test Results for New Endpoint */}
+          {(newEndpointTestResult.result || newEndpointTestResult.error) && (
+            <div className="mt-4 sm:mt-6 p-3 sm:p-4 bg-black/20 rounded-lg border border-white/10">
+              <h5 className="text-sm font-semibold text-white mb-2 flex items-center gap-2">
+                <Zap size={14} />
+                Test Result
+                {newEndpointTestResult.executedAt && (
+                  <span className="text-xs text-gray-400 font-normal">
+                    ({new Date(newEndpointTestResult.executedAt).toLocaleTimeString()})
+                  </span>
+                )}
+              </h5>
+              
+              {newEndpointTestResult.result && (
+                <div className="bg-green-500/10 rounded-lg p-2 sm:p-3 border border-green-500/30 mb-2">
+                  <div className="text-xs text-green-300 mb-1 flex items-center gap-2">
+                    <CheckCircle size={12} />
+                    Success - {newEndpointTestResult.result.response?.http_status || 'N/A'}
+                  </div>
+                  <div className="code-block text-xs max-h-32 overflow-y-auto">
+                    {JSON.stringify(newEndpointTestResult.result, null, 2)}
+                  </div>
+                </div>
+              )}
+
+              {newEndpointTestResult.error && (
+                <div className="bg-red-500/10 rounded-lg p-2 sm:p-3 border border-red-500/30">
+                  <div className="text-xs text-red-300 mb-1 flex items-center gap-2">
+                    <AlertTriangle size={12} />
+                    Error
+                  </div>
+                  <div className="code-block text-xs text-red-200">
+                    {newEndpointTestResult.error}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
