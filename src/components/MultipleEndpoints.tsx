@@ -87,6 +87,7 @@ interface TestSuite {
   id: string;
   title: string;
   description: string;
+  baseUrl: string; // Base URL for all endpoints in this suite
   endpoints: EndpointTest[];
   createdAt: number;
   updatedAt: number;
@@ -96,6 +97,8 @@ interface TestSuite {
 const MultipleEndpoints = () => {
   const navigate = useNavigate();
   const [currentSuite, setCurrentSuite] = useState<TestSuite | null>(null);
+  const [testSuites, setTestSuites] = useState<TestSuite[]>([]);
+  const [showSuiteHistory, setShowSuiteHistory] = useState(false);
   const [newEndpoint, setNewEndpoint] = useState({
     title: "",
     description: "",
@@ -133,40 +136,76 @@ const MultipleEndpoints = () => {
     return Date.now().toString(36) + Math.random().toString(36).substr(2);
   };
 
-  const loadSuiteFromStorage = (): TestSuite | null => {
+  const loadSuitesFromStorage = (): TestSuite[] => {
     try {
-      const stored = localStorage.getItem("reqline-test-suite");
+      const stored = localStorage.getItem("reqline-test-suites");
+      if (!stored) return [];
+
+      const suites: TestSuite[] = JSON.parse(stored);
+      const now = Date.now();
+
+      // Filter out expired suites
+      const validSuites = suites.filter(suite => now <= suite.expiresAt);
+      
+      // Update storage with only valid suites
+      if (validSuites.length !== suites.length) {
+        localStorage.setItem("reqline-test-suites", JSON.stringify(validSuites));
+      }
+
+      return validSuites;
+    } catch (error) {
+      console.error("Error loading test suites from storage:", error);
+      return [];
+    }
+  };
+
+  const saveSuitesToStorage = (suites: TestSuite[]): void => {
+    try {
+      localStorage.setItem("reqline-test-suites", JSON.stringify(suites));
+    } catch (error) {
+      console.error("Error saving test suites to storage:", error);
+      setToast({ message: "Failed to save test suites", type: "error" });
+    }
+  };
+
+  const loadCurrentSuiteFromStorage = (): TestSuite | null => {
+    try {
+      const stored = localStorage.getItem("reqline-test-current-suite");
       if (!stored) return null;
       
       const suite: TestSuite = JSON.parse(stored);
       
       // Check if suite has expired (4 hours)
       if (Date.now() > suite.expiresAt) {
-        localStorage.removeItem("reqline-test-suite");
+        localStorage.removeItem("reqline-test-current-suite");
         return null;
       }
       
       return suite;
     } catch (error) {
-      console.error("Error loading test suite from storage:", error);
+      console.error("Error loading current test suite from storage:", error);
       return null;
     }
   };
 
-  const saveSuiteToStorage = (suite: TestSuite): void => {
+  const saveCurrentSuiteToStorage = (suite: TestSuite | null): void => {
     try {
-      localStorage.setItem("reqline-test-suite", JSON.stringify(suite));
+      if (suite) {
+        localStorage.setItem("reqline-test-current-suite", JSON.stringify(suite));
+      } else {
+        localStorage.removeItem("reqline-test-current-suite");
+      }
     } catch (error) {
-      console.error("Error saving test suite to storage:", error);
-      setToast({ message: "Failed to save test suite", type: "error" });
+      console.error("Error saving current test suite to storage:", error);
     }
   };
 
-  const createNewSuite = (): TestSuite => {
+  const createNewSuite = (baseUrl?: string): TestSuite => {
     return {
       id: generateId(),
       title: "API Test Suite",
       description: "Test suite for multiple API endpoints",
+      baseUrl: baseUrl || "",
       endpoints: [],
       createdAt: Date.now(),
       updatedAt: Date.now(),
@@ -177,7 +216,30 @@ const MultipleEndpoints = () => {
   const addEndpointToSuite = (
     endpoint: Omit<EndpointTest, "id" | "createdAt" | "result" | "error" | "isLoading" | "status">
   ): void => {
-    if (!currentSuite) return;
+    // Validate endpoint for current suite
+    const validation = validateEndpointForSuite(endpoint.reqline);
+    if (!validation.valid) {
+      setToast({ message: validation.message || "Invalid endpoint", type: "error" });
+      return;
+    }
+
+    // If no current suite, create one with the base URL
+    if (!currentSuite) {
+      const baseUrl = extractBaseUrl(endpoint.reqline);
+      if (!baseUrl) {
+        setToast({ message: "Could not extract base URL from reqline", type: "error" });
+        return;
+      }
+
+      const newSuite = createNewSuite(baseUrl);
+      setCurrentSuite(newSuite);
+      saveCurrentSuiteToStorage(newSuite);
+      
+      // Add to suites history
+      const updatedSuites = [...testSuites, newSuite];
+      setTestSuites(updatedSuites);
+      saveSuitesToStorage(updatedSuites);
+    }
 
     const newEndpointData: EndpointTest = {
       ...endpoint,
@@ -190,13 +252,21 @@ const MultipleEndpoints = () => {
     };
 
     const updatedSuite = {
-      ...currentSuite,
-      endpoints: [...currentSuite.endpoints, newEndpointData],
+      ...currentSuite!,
+      endpoints: [...currentSuite!.endpoints, newEndpointData],
       updatedAt: Date.now(),
     };
 
     setCurrentSuite(updatedSuite);
-    saveSuiteToStorage(updatedSuite);
+    saveCurrentSuiteToStorage(updatedSuite);
+    
+    // Update in suites history
+    const updatedSuites = testSuites.map(suite => 
+      suite.id === updatedSuite.id ? updatedSuite : suite
+    );
+    setTestSuites(updatedSuites);
+    saveSuitesToStorage(updatedSuites);
+    
     setToast({ message: "Endpoint added to test suite", type: "success" });
   };
 
@@ -212,7 +282,14 @@ const MultipleEndpoints = () => {
     };
 
     setCurrentSuite(updatedSuite);
-    saveSuiteToStorage(updatedSuite);
+    saveCurrentSuiteToStorage(updatedSuite);
+    
+    // Update in suites history
+    const updatedSuites = testSuites.map(suite => 
+      suite.id === updatedSuite.id ? updatedSuite : suite
+    );
+    setTestSuites(updatedSuites);
+    saveSuitesToStorage(updatedSuites);
   };
 
   const removeEndpointFromSuite = (endpointId: string): void => {
@@ -227,11 +304,87 @@ const MultipleEndpoints = () => {
     };
 
     setCurrentSuite(updatedSuite);
-    saveSuiteToStorage(updatedSuite);
+    saveCurrentSuiteToStorage(updatedSuite);
+    
+    // Update in suites history
+    const updatedSuites = testSuites.map(suite => 
+      suite.id === updatedSuite.id ? updatedSuite : suite
+    );
+    setTestSuites(updatedSuites);
+    saveSuitesToStorage(updatedSuites);
+    
     setToast({
       message: "Endpoint removed from test suite",
       type: "success",
     });
+  };
+
+  const createNewTestSuite = (): void => {
+    // Move current suite to history if it exists and has endpoints
+    if (currentSuite && currentSuite.endpoints.length > 0) {
+      const updatedSuites = testSuites.map(suite => 
+        suite.id === currentSuite.id ? currentSuite : suite
+      );
+      setTestSuites(updatedSuites);
+      saveSuitesToStorage(updatedSuites);
+    }
+
+    // Clear current suite
+    setCurrentSuite(null);
+    saveCurrentSuiteToStorage(null);
+    setNewEndpointTestResult({ isLoading: false, result: null, error: null });
+    
+    setToast({ message: "New test suite created", type: "success" });
+  };
+
+  const cancelCurrentSuite = (): void => {
+    if (!currentSuite) {
+      setToast({ message: "No active test suite to cancel", type: "error" });
+      return;
+    }
+
+    // Move to history if it has endpoints
+    if (currentSuite.endpoints.length > 0) {
+      const updatedSuites = testSuites.map(suite => 
+        suite.id === currentSuite.id ? currentSuite : suite
+      );
+      setTestSuites(updatedSuites);
+      saveSuitesToStorage(updatedSuites);
+    }
+
+    // Clear current suite
+    setCurrentSuite(null);
+    saveCurrentSuiteToStorage(null);
+    setNewEndpointTestResult({ isLoading: false, result: null, error: null });
+    
+    setToast({ message: "Test suite cancelled", type: "success" });
+  };
+
+  const loadSuiteFromHistory = (suiteId: string): void => {
+    const suite = testSuites.find(s => s.id === suiteId);
+    if (!suite) {
+      setToast({ message: "Test suite not found", type: "error" });
+      return;
+    }
+
+    setCurrentSuite(suite);
+    saveCurrentSuiteToStorage(suite);
+    setShowSuiteHistory(false);
+    setToast({ message: "Test suite loaded", type: "success" });
+  };
+
+  const deleteSuiteFromHistory = (suiteId: string): void => {
+    const updatedSuites = testSuites.filter(s => s.id !== suiteId);
+    setTestSuites(updatedSuites);
+    saveSuitesToStorage(updatedSuites);
+    
+    // If we're deleting the current suite, clear it
+    if (currentSuite?.id === suiteId) {
+      setCurrentSuite(null);
+      saveCurrentSuiteToStorage(null);
+    }
+    
+    setToast({ message: "Test suite deleted", type: "success" });
   };
 
   const executeSingleEndpoint = async (endpointId: string): Promise<void> => {
@@ -298,7 +451,14 @@ const MultipleEndpoints = () => {
       updatedAt: Date.now(),
     };
     setCurrentSuite(resetSuite);
-    saveSuiteToStorage(resetSuite);
+    saveCurrentSuiteToStorage(resetSuite);
+    
+    // Update in suites history
+    const updatedSuites = testSuites.map(suite => 
+      suite.id === resetSuite.id ? resetSuite : suite
+    );
+    setTestSuites(updatedSuites);
+    saveSuitesToStorage(updatedSuites);
 
     // Execute endpoints sequentially
     for (const endpoint of resetSuite.endpoints) {
@@ -325,9 +485,54 @@ const MultipleEndpoints = () => {
     };
 
     setCurrentSuite(updatedSuite);
-    saveSuiteToStorage(updatedSuite);
+    saveCurrentSuiteToStorage(updatedSuite);
+    
+    // Update in suites history
+    const updatedSuites = testSuites.map(suite => 
+      suite.id === updatedSuite.id ? updatedSuite : suite
+    );
+    setTestSuites(updatedSuites);
+    saveSuitesToStorage(updatedSuites);
+    
     setIsRunningAll(false);
     setToast({ message: "Execution stopped", type: "success" });
+  };
+
+  // Extract base URL from reqline syntax
+  const extractBaseUrl = (reqline: string): string | null => {
+    try {
+      // Look for URL pattern in reqline
+      const urlMatch = reqline.match(/URL\s+(https?:\/\/[^\s|]+)/i);
+      if (urlMatch) {
+        const fullUrl = urlMatch[1];
+        const url = new URL(fullUrl);
+        return `${url.protocol}//${url.host}`;
+      }
+      return null;
+    } catch (error) {
+      return null;
+    }
+  };
+
+  // Validate if endpoint can be added to current suite
+  const validateEndpointForSuite = (reqline: string): { valid: boolean; message?: string } => {
+    if (!currentSuite) {
+      return { valid: true }; // First endpoint, always valid
+    }
+
+    const newBaseUrl = extractBaseUrl(reqline);
+    if (!newBaseUrl) {
+      return { valid: false, message: "Could not extract base URL from reqline syntax" };
+    }
+
+    if (newBaseUrl !== currentSuite.baseUrl) {
+      return { 
+        valid: false, 
+        message: `Different base URLs cannot be mixed in the same test suite. Current suite uses: ${currentSuite.baseUrl}, but this endpoint uses: ${newBaseUrl}` 
+      };
+    }
+
+    return { valid: true };
   };
 
   const testNewEndpoint = async (): Promise<void> => {
@@ -501,13 +706,14 @@ const MultipleEndpoints = () => {
     }
   };
 
-  // Initialize test suite from localStorage
+  // Initialize test suites from localStorage
   useEffect(() => {
-    const savedSuite = loadSuiteFromStorage();
-    if (savedSuite) {
-      setCurrentSuite(savedSuite);
-    } else {
-      setCurrentSuite(createNewSuite());
+    const loadedSuites = loadSuitesFromStorage();
+    setTestSuites(loadedSuites);
+    
+    const loadedCurrentSuite = loadCurrentSuiteFromStorage();
+    if (loadedCurrentSuite) {
+      setCurrentSuite(loadedCurrentSuite);
     }
   }, []);
 
@@ -567,6 +773,38 @@ const MultipleEndpoints = () => {
           </div>
           <div className="flex gap-2">
             <button
+              onClick={() => setShowSuiteHistory(!showSuiteHistory)}
+              className="btn-secondary flex items-center gap-2 text-xs sm:text-sm"
+              title="View test suite history"
+              aria-label="View test suite history"
+            >
+              <Package size={16} />
+              <span className="hidden sm:inline">History</span>
+              <span className="sm:hidden">Hist</span>
+            </button>
+            <button
+              onClick={createNewTestSuite}
+              className="btn-secondary flex items-center gap-2 text-xs sm:text-sm"
+              title="Create new test suite"
+              aria-label="Create new test suite"
+            >
+              <Plus size={16} />
+              <span className="hidden sm:inline">New Suite</span>
+              <span className="sm:hidden">New</span>
+            </button>
+            {currentSuite && (
+              <button
+                onClick={cancelCurrentSuite}
+                className="btn-secondary flex items-center gap-2 text-xs sm:text-sm"
+                title="Cancel current test suite"
+                aria-label="Cancel current test suite"
+              >
+                <Square size={16} />
+                <span className="hidden sm:inline">Cancel</span>
+                <span className="sm:hidden">Cancel</span>
+              </button>
+            )}
+            <button
               onClick={() => setShowDocumentation(!showDocumentation)}
               className="btn-secondary flex items-center gap-2 text-xs sm:text-sm"
               title="Toggle documentation"
@@ -603,6 +841,70 @@ const MultipleEndpoints = () => {
           </div>
         </div>
 
+        {/* Test Suite History */}
+        {showSuiteHistory && (
+          <div className="bg-black/30 rounded-xl p-3 sm:p-6 border border-white/10 mb-4 sm:mb-6">
+            <h4 className="text-sm sm:text-base font-semibold text-white mb-3 sm:mb-4 flex items-center gap-2">
+              <Package className="w-4 h-4" />
+              Test Suite History
+            </h4>
+            {testSuites.length === 0 ? (
+              <div className="text-center py-4 text-blue-200 text-sm">
+                No test suites in history. Create your first test suite above.
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {testSuites.map((suite) => (
+                  <div
+                    key={suite.id}
+                    className="bg-black/40 rounded-lg p-3 border border-white/10 hover:bg-black/60 transition-all duration-300"
+                  >
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex-1 min-w-0">
+                        <h5 className="font-semibold text-white text-sm mb-1">
+                          {suite.title}
+                        </h5>
+                        <p className="text-blue-200 text-xs mb-1">
+                          {suite.description}
+                        </p>
+                        <div className="flex items-center gap-2 text-xs">
+                          <span className="text-green-300 bg-green-500/20 px-2 py-1 rounded">
+                            {suite.baseUrl}
+                          </span>
+                          <span className="text-blue-300">
+                            {suite.endpoints.length} endpoints
+                          </span>
+                          <span className="text-gray-400">
+                            {new Date(suite.createdAt).toLocaleDateString()}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="flex gap-2 flex-shrink-0">
+                        <button
+                          onClick={() => loadSuiteFromHistory(suite.id)}
+                          className="p-2 text-blue-300 hover:text-white hover:bg-blue-500/20 rounded-lg transition-all duration-300"
+                          title="Load this test suite"
+                          aria-label={`Load ${suite.title}`}
+                        >
+                          <Eye size={16} />
+                        </button>
+                        <button
+                          onClick={() => deleteSuiteFromHistory(suite.id)}
+                          className="p-2 text-red-300 hover:text-white hover:bg-red-500/20 rounded-lg transition-all duration-300"
+                          title="Delete this test suite"
+                          aria-label={`Delete ${suite.title}`}
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Suite Info */}
         {currentSuite && (
           <div className="bg-black/30 rounded-xl p-3 sm:p-6 border border-white/10 mb-4 sm:mb-6">
@@ -619,7 +921,14 @@ const MultipleEndpoints = () => {
                       updatedAt: Date.now(),
                     };
                     setCurrentSuite(updatedSuite);
-                    saveSuiteToStorage(updatedSuite);
+                    saveCurrentSuiteToStorage(updatedSuite);
+                    
+                    // Update in suites history
+                    const updatedSuites = testSuites.map(suite => 
+                      suite.id === updatedSuite.id ? updatedSuite : suite
+                    );
+                    setTestSuites(updatedSuites);
+                    saveSuitesToStorage(updatedSuites);
                   }}
                   className="bg-black/40 border border-white/20 rounded-lg text-white placeholder-blue-300 text-xs sm:text-sm p-2 sm:p-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
@@ -627,20 +936,32 @@ const MultipleEndpoints = () => {
                   Expires: {new Date(currentSuite.expiresAt).toLocaleString()}
                 </div>
               </div>
-              <textarea
-                placeholder="Test Suite Description"
-                value={currentSuite.description}
-                onChange={(e) => {
-                  const updatedSuite = {
-                    ...currentSuite,
-                    description: e.target.value,
-                    updatedAt: Date.now(),
-                  };
-                  setCurrentSuite(updatedSuite);
-                  saveSuiteToStorage(updatedSuite);
-                }}
-                className="bg-black/40 border border-white/20 rounded-lg text-white placeholder-blue-300 text-xs sm:text-sm p-2 sm:p-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none h-20"
-              />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                <textarea
+                  placeholder="Test Suite Description"
+                  value={currentSuite.description}
+                  onChange={(e) => {
+                    const updatedSuite = {
+                      ...currentSuite,
+                      description: e.target.value,
+                      updatedAt: Date.now(),
+                    };
+                    setCurrentSuite(updatedSuite);
+                    saveCurrentSuiteToStorage(updatedSuite);
+                    
+                    // Update in suites history
+                    const updatedSuites = testSuites.map(suite => 
+                      suite.id === updatedSuite.id ? updatedSuite : suite
+                    );
+                    setTestSuites(updatedSuites);
+                    saveSuitesToStorage(updatedSuites);
+                  }}
+                  className="bg-black/40 border border-white/20 rounded-lg text-white placeholder-blue-300 text-xs sm:text-sm p-2 sm:p-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none h-20"
+                />
+                <div className="text-xs text-green-300 bg-green-500/20 px-3 py-2 rounded-lg flex items-center justify-center">
+                  Base URL: {currentSuite.baseUrl || "Not set"}
+                </div>
+              </div>
             </div>
           </div>
         )}
@@ -674,7 +995,17 @@ const MultipleEndpoints = () => {
           <h4 className="text-sm sm:text-base font-semibold text-white mb-3 sm:mb-4 flex items-center gap-2">
             <Plus className="w-4 h-4" />
             Add New Endpoint Test
+            {currentSuite && (
+              <span className="text-xs text-green-300 bg-green-500/20 px-2 py-1 rounded">
+                Base URL: {currentSuite.baseUrl}
+              </span>
+            )}
           </h4>
+          {!currentSuite && (
+            <div className="text-center py-4 text-blue-200 text-sm mb-4">
+              No active test suite. Add your first endpoint to create a new test suite, or load one from history.
+            </div>
+          )}
           <div className="grid gap-3 sm:gap-4">
             {/* Keyword Suggestions */}
             <div className="flex flex-wrap gap-2 sm:gap-3">
