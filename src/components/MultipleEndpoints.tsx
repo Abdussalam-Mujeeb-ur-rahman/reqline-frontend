@@ -717,6 +717,21 @@ const MultipleEndpoints = () => {
     }
   }, []);
 
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Element;
+      if (showDocumentation && !target.closest('.download-dropdown')) {
+        setShowDocumentation(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showDocumentation]);
+
   const getStatusColor = (status: EndpointTest['status']) => {
     switch (status) {
       case 'pending': return 'text-gray-400';
@@ -804,40 +819,47 @@ const MultipleEndpoints = () => {
                 <span className="sm:hidden">Cancel</span>
               </button>
             )}
-            <button
-              onClick={() => setShowDocumentation(!showDocumentation)}
-              className="btn-secondary flex items-center gap-2 text-xs sm:text-sm"
-              title="Toggle documentation"
-              aria-label="Toggle documentation"
-            >
-              <BookOpen size={16} />
-              <span className="hidden sm:inline">Documentation</span>
-              <span className="sm:hidden">Docs</span>
-            </button>
-            {showDocumentation && (
-              <>
-                <button
-                  onClick={downloadMarkdown}
-                  className="btn-secondary flex items-center gap-2 text-xs sm:text-sm"
-                  title="Export as Markdown"
-                  aria-label="Export as Markdown"
-                >
-                  <FileDown size={16} />
-                  <span className="hidden sm:inline">Export MD</span>
-                  <span className="sm:hidden">MD</span>
-                </button>
-                <button
-                  onClick={downloadPDF}
-                  className="btn-secondary flex items-center gap-2 text-xs sm:text-sm"
-                  title="Export as PDF"
-                  aria-label="Export as PDF"
-                >
-                  <FileUp size={16} />
-                  <span className="hidden sm:inline">Export PDF</span>
-                  <span className="sm:hidden">PDF</span>
-                </button>
-              </>
-            )}
+            <div className="relative download-dropdown">
+              <button
+                onClick={() => setShowDocumentation(!showDocumentation)}
+                className="btn-secondary flex items-center gap-2 text-xs sm:text-sm"
+                title="Download documentation"
+                aria-label="Download documentation"
+              >
+                <Download size={16} />
+                <span className="hidden sm:inline">Download</span>
+                <span className="sm:hidden">Download</span>
+                {showDocumentation ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+              </button>
+              {showDocumentation && (
+                <div className="absolute right-0 top-full mt-2 bg-black/90 border border-white/20 rounded-lg shadow-lg z-50 min-w-48">
+                  <button
+                    onClick={() => {
+                      downloadMarkdown();
+                      setShowDocumentation(false);
+                    }}
+                    className="w-full flex items-center gap-3 px-4 py-3 text-left text-white hover:bg-white/10 transition-colors duration-200 text-xs sm:text-sm"
+                    title="Export as Markdown"
+                    aria-label="Export as Markdown"
+                  >
+                    <FileDown size={16} />
+                    <span>Export as Markdown</span>
+                  </button>
+                  <button
+                    onClick={() => {
+                      downloadPDF();
+                      setShowDocumentation(false);
+                    }}
+                    className="w-full flex items-center gap-3 px-4 py-3 text-left text-white hover:bg-white/10 transition-colors duration-200 text-xs sm:text-sm border-t border-white/10"
+                    title="Export as PDF"
+                    aria-label="Export as PDF"
+                  >
+                    <FileUp size={16} />
+                    <span>Export as PDF</span>
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
