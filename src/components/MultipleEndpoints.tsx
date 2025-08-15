@@ -766,55 +766,60 @@ const MultipleEndpoints = () => {
 
       {/* Header */}
       <div className="glass-dark rounded-xl sm:rounded-2xl p-3 sm:p-6 lg:p-8 animate-fade-in-up border border-white/10">
-        <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 mb-4 sm:mb-6 lg:mb-8">
-          <button
-            onClick={() => navigate('/')}
-            className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-r from-gray-500 to-gray-600 hover:from-gray-600 hover:to-gray-700 rounded-xl flex items-center justify-center shadow-lg transition-all duration-300 hover:scale-105"
-            title="Go back"
-            aria-label="Go back"
-          >
-            <ArrowLeft className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
-          </button>
-          <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-r from-blue-500 to-purple-500 rounded-xl flex items-center justify-center shadow-lg">
-            <Zap className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
+        <div className="flex flex-col gap-3 sm:gap-4 mb-4 sm:mb-6 lg:mb-8">
+          {/* Top row: Back button, icon, title */}
+          <div className="flex items-center gap-3 sm:gap-4">
+            <button
+              onClick={() => navigate('/')}
+              className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-r from-gray-500 to-gray-600 hover:from-gray-600 hover:to-gray-700 rounded-xl flex items-center justify-center shadow-lg transition-all duration-300 hover:scale-105"
+              title="Go back"
+              aria-label="Go back"
+            >
+              <ArrowLeft className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
+            </button>
+            <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-r from-blue-500 to-purple-500 rounded-xl flex items-center justify-center shadow-lg">
+              <Zap className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <h2 className="text-lg sm:text-xl lg:text-2xl font-bold text-white truncate">
+                Multiple Endpoints Testing
+              </h2>
+              <p className="text-blue-200 text-xs sm:text-sm lg:text-base">
+                Test multiple API endpoints and create documentation
+              </p>
+            </div>
           </div>
-          <div className="flex-1">
-            <h2 className="text-lg sm:text-xl lg:text-2xl font-bold text-white">
-              Multiple Endpoints Testing
-            </h2>
-            <p className="text-blue-200 text-xs sm:text-sm lg:text-base">
-              Test multiple API endpoints and create documentation
-            </p>
-          </div>
-          <div className="flex gap-2">
+          
+          {/* Bottom row: Action buttons */}
+          <div className="flex flex-wrap gap-2 justify-center sm:justify-start">
             <button
               onClick={() => setShowSuiteHistory(!showSuiteHistory)}
-              className="btn-secondary flex items-center gap-2 text-xs sm:text-sm"
+              className="btn-secondary flex items-center gap-1 sm:gap-2 text-xs sm:text-sm px-3 py-2 sm:px-4 sm:py-2"
               title="View test suite history"
               aria-label="View test suite history"
             >
-              <Package size={16} />
+              <Package size={14} className="sm:w-4 sm:h-4" />
               <span className="hidden sm:inline">History</span>
               <span className="sm:hidden">Hist</span>
             </button>
             <button
               onClick={createNewTestSuite}
-              className="btn-secondary flex items-center gap-2 text-xs sm:text-sm"
+              className="btn-secondary flex items-center gap-1 sm:gap-2 text-xs sm:text-sm px-3 py-2 sm:px-4 sm:py-2"
               title="Create new test suite"
               aria-label="Create new test suite"
             >
-              <Plus size={16} />
+              <Plus size={14} className="sm:w-4 sm:h-4" />
               <span className="hidden sm:inline">New Suite</span>
               <span className="sm:hidden">New</span>
             </button>
             {currentSuite && (
               <button
                 onClick={cancelCurrentSuite}
-                className="btn-secondary flex items-center gap-2 text-xs sm:text-sm"
+                className="btn-secondary flex items-center gap-1 sm:gap-2 text-xs sm:text-sm px-3 py-2 sm:px-4 sm:py-2"
                 title="Cancel current test suite"
                 aria-label="Cancel current test suite"
               >
-                <Square size={16} />
+                <Square size={14} className="sm:w-4 sm:h-4" />
                 <span className="hidden sm:inline">Cancel</span>
                 <span className="sm:hidden">Cancel</span>
               </button>
@@ -822,17 +827,17 @@ const MultipleEndpoints = () => {
             <div className="relative download-dropdown">
               <button
                 onClick={() => setShowDocumentation(!showDocumentation)}
-                className="btn-secondary flex items-center gap-2 text-xs sm:text-sm"
+                className="btn-secondary flex items-center gap-1 sm:gap-2 text-xs sm:text-sm px-3 py-2 sm:px-4 sm:py-2"
                 title="Download documentation"
                 aria-label="Download documentation"
               >
-                <Download size={16} />
+                <Download size={14} className="sm:w-4 sm:h-4" />
                 <span className="hidden sm:inline">Download</span>
                 <span className="sm:hidden">Download</span>
-                {showDocumentation ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                {showDocumentation ? <ChevronUp size={12} className="sm:w-3 sm:h-3" /> : <ChevronDown size={12} className="sm:w-3 sm:h-3" />}
               </button>
               {showDocumentation && (
-                <div className="absolute right-0 top-full mt-2 bg-black/90 border border-white/20 rounded-lg shadow-lg z-50 min-w-48">
+                <div className="absolute right-0 top-full mt-2 bg-black/90 border border-white/20 rounded-lg shadow-lg z-50 min-w-48 w-full sm:w-auto">
                   <button
                     onClick={() => {
                       downloadMarkdown();
@@ -881,16 +886,16 @@ const MultipleEndpoints = () => {
                     key={suite.id}
                     className="bg-black/40 rounded-lg p-3 border border-white/10 hover:bg-black/60 transition-all duration-300"
                   >
-                    <div className="flex items-center justify-between gap-3">
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-3">
                       <div className="flex-1 min-w-0">
-                        <h5 className="font-semibold text-white text-sm mb-1">
+                        <h5 className="font-semibold text-white text-sm mb-1 truncate">
                           {suite.title}
                         </h5>
-                        <p className="text-blue-200 text-xs mb-1">
+                        <p className="text-blue-200 text-xs mb-2 sm:mb-1 line-clamp-2">
                           {suite.description}
                         </p>
-                        <div className="flex items-center gap-2 text-xs">
-                          <span className="text-green-300 bg-green-500/20 px-2 py-1 rounded">
+                        <div className="flex flex-wrap items-center gap-2 text-xs">
+                          <span className="text-green-300 bg-green-500/20 px-2 py-1 rounded truncate max-w-full">
                             {suite.baseUrl}
                           </span>
                           <span className="text-blue-300">
@@ -901,7 +906,7 @@ const MultipleEndpoints = () => {
                           </span>
                         </div>
                       </div>
-                      <div className="flex gap-2 flex-shrink-0">
+                      <div className="flex gap-2 flex-shrink-0 justify-center sm:justify-end">
                         <button
                           onClick={() => loadSuiteFromHistory(suite.id)}
                           className="p-2 text-blue-300 hover:text-white hover:bg-blue-500/20 rounded-lg transition-all duration-300"
@@ -931,7 +936,7 @@ const MultipleEndpoints = () => {
         {currentSuite && (
           <div className="bg-black/30 rounded-xl p-3 sm:p-6 border border-white/10 mb-4 sm:mb-6">
             <div className="grid gap-3 sm:gap-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+              <div className="grid grid-cols-1 gap-3 sm:gap-4">
                 <input
                   type="text"
                   placeholder="Test Suite Title"
@@ -954,11 +959,6 @@ const MultipleEndpoints = () => {
                   }}
                   className="bg-black/40 border border-white/20 rounded-lg text-white placeholder-blue-300 text-xs sm:text-sm p-2 sm:p-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
-                <div className="text-xs text-blue-300 bg-blue-500/20 px-3 py-2 rounded-lg flex items-center justify-center">
-                  Expires: {new Date(currentSuite.expiresAt).toLocaleString()}
-                </div>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                 <textarea
                   placeholder="Test Suite Description"
                   value={currentSuite.description}
@@ -980,8 +980,13 @@ const MultipleEndpoints = () => {
                   }}
                   className="bg-black/40 border border-white/20 rounded-lg text-white placeholder-blue-300 text-xs sm:text-sm p-2 sm:p-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none h-20"
                 />
-                <div className="text-xs text-green-300 bg-green-500/20 px-3 py-2 rounded-lg flex items-center justify-center">
-                  Base URL: {currentSuite.baseUrl || "Not set"}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                  <div className="text-xs text-blue-300 bg-blue-500/20 px-3 py-2 rounded-lg flex items-center justify-center">
+                    Expires: {new Date(currentSuite.expiresAt).toLocaleString()}
+                  </div>
+                  <div className="text-xs text-green-300 bg-green-500/20 px-3 py-2 rounded-lg flex items-center justify-center truncate">
+                    Base URL: {currentSuite.baseUrl || "Not set"}
+                  </div>
                 </div>
               </div>
             </div>
@@ -989,36 +994,46 @@ const MultipleEndpoints = () => {
         )}
 
         {/* Execution Controls */}
-        <div className="flex flex-wrap gap-2 sm:gap-3 mb-4 sm:mb-6">
-          <button
-            onClick={executeAllEndpoints}
-            disabled={isRunningAll || !currentSuite?.endpoints.length}
-            className="btn-primary flex items-center gap-2 text-xs sm:text-sm disabled:opacity-50 disabled:cursor-not-allowed"
-            title="Run all endpoints"
-            aria-label="Run all endpoints"
-          >
-            {isRunningAll ? <LoadingSpinner size={16} /> : <Play size={16} />}
-            {isRunningAll ? "Running..." : "Run All"}
-          </button>
-          <button
-            onClick={stopAllExecution}
-            disabled={!isRunningAll}
-            className="btn-secondary flex items-center gap-2 text-xs sm:text-sm disabled:opacity-50 disabled:cursor-not-allowed"
-            title="Stop execution"
-            aria-label="Stop execution"
-          >
-            <Square size={16} />
-            Stop
-          </button>
-        </div>
+        {currentSuite && currentSuite.endpoints.length > 0 && (
+          <div className="bg-black/30 rounded-xl p-3 sm:p-6 border border-white/10 mb-4 sm:mb-6">
+            <h4 className="text-sm sm:text-base font-semibold text-white mb-3 sm:mb-4 flex items-center gap-2">
+              <Play className="w-4 h-4" />
+              Execution Controls
+            </h4>
+            <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
+              <button
+                onClick={executeAllEndpoints}
+                disabled={isRunningAll}
+                className="btn-primary flex items-center justify-center gap-2 text-xs sm:text-sm disabled:opacity-50 disabled:cursor-not-allowed px-4 py-2"
+                title="Run all endpoints"
+                aria-label="Run all endpoints"
+              >
+                {isRunningAll ? <LoadingSpinner size={16} /> : <Play size={16} />}
+                {isRunningAll ? "Running..." : "Run All"}
+              </button>
+              <button
+                onClick={stopAllExecution}
+                disabled={!isRunningAll}
+                className="btn-secondary flex items-center justify-center gap-2 text-xs sm:text-sm disabled:opacity-50 disabled:cursor-not-allowed px-4 py-2"
+                title="Stop execution"
+                aria-label="Stop execution"
+              >
+                <Square size={16} />
+                Stop
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Add New Endpoint */}
         <div className="bg-black/30 rounded-xl p-3 sm:p-6 border border-white/10 mb-4 sm:mb-6">
-          <h4 className="text-sm sm:text-base font-semibold text-white mb-3 sm:mb-4 flex items-center gap-2">
-            <Plus className="w-4 h-4" />
-            Add New Endpoint Test
+          <h4 className="text-sm sm:text-base font-semibold text-white mb-3 sm:mb-4 flex flex-col sm:flex-row sm:items-center gap-2">
+            <div className="flex items-center gap-2">
+              <Plus className="w-4 h-4" />
+              <span>Add New Endpoint Test</span>
+            </div>
             {currentSuite && (
-              <span className="text-xs text-green-300 bg-green-500/20 px-2 py-1 rounded">
+              <span className="text-xs text-green-300 bg-green-500/20 px-2 py-1 rounded truncate">
                 Base URL: {currentSuite.baseUrl}
               </span>
             )}
@@ -1049,7 +1064,7 @@ const MultipleEndpoints = () => {
               ))}
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+            <div className="grid grid-cols-1 gap-3 sm:gap-4">
               <input
                 type="text"
                 placeholder="Endpoint Title (e.g., Get User Profile)"
@@ -1125,9 +1140,11 @@ const MultipleEndpoints = () => {
           {/* Test Results for New Endpoint */}
           {(newEndpointTestResult.result || newEndpointTestResult.error) && (
             <div className="mt-4 sm:mt-6 p-3 sm:p-4 bg-black/20 rounded-lg border border-white/10">
-              <h5 className="text-sm font-semibold text-white mb-2 flex items-center gap-2">
-                <Zap size={14} />
-                Test Result
+              <h5 className="text-sm font-semibold text-white mb-2 flex flex-col sm:flex-row sm:items-center gap-2">
+                <div className="flex items-center gap-2">
+                  <Zap size={14} />
+                  <span>Test Result</span>
+                </div>
                 {newEndpointTestResult.executedAt && (
                   <span className="text-xs text-gray-400 font-normal">
                     ({new Date(newEndpointTestResult.executedAt).toLocaleTimeString()})
@@ -1141,7 +1158,7 @@ const MultipleEndpoints = () => {
                     <CheckCircle size={12} />
                     Success - {newEndpointTestResult.result.response?.http_status || 'N/A'}
                   </div>
-                  <div className="code-block text-xs max-h-32 overflow-y-auto">
+                  <div className="code-block text-xs max-h-32 overflow-y-auto break-words">
                     {JSON.stringify(newEndpointTestResult.result, null, 2)}
                   </div>
                 </div>
@@ -1153,7 +1170,7 @@ const MultipleEndpoints = () => {
                     <AlertTriangle size={12} />
                     Error
                   </div>
-                  <div className="code-block text-xs text-red-200">
+                  <div className="code-block text-xs text-red-200 break-words">
                     {newEndpointTestResult.error}
                   </div>
                 </div>
@@ -1177,10 +1194,10 @@ const MultipleEndpoints = () => {
             >
               <div className="space-y-3 sm:space-y-4">
                 {/* Endpoint Header */}
-                <div className="flex items-start justify-between gap-3 sm:gap-4">
+                <div className="flex flex-col sm:flex-row sm:items-start gap-3 sm:gap-4">
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
-                      <h5 className="font-semibold text-white text-sm sm:text-base">
+                    <div className="flex flex-wrap items-center gap-2 mb-1">
+                      <h5 className="font-semibold text-white text-sm sm:text-base truncate">
                         {editingEndpoint === endpoint.id ? (
                           <input
                             type="text"
@@ -1190,7 +1207,7 @@ const MultipleEndpoints = () => {
                                 title: e.target.value,
                               })
                             }
-                            className="bg-black/40 border border-white/20 rounded px-2 py-1 text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            className="bg-black/40 border border-white/20 rounded px-2 py-1 text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-full"
                             onBlur={() => setEditingEndpoint(null)}
                             onKeyDown={(e) =>
                               e.key === "Enter" && setEditingEndpoint(null)
@@ -1235,7 +1252,7 @@ const MultipleEndpoints = () => {
                       </p>
                     )}
                   </div>
-                  <div className="flex gap-2 flex-shrink-0">
+                  <div className="flex gap-2 flex-shrink-0 justify-center sm:justify-end">
                     <button
                       onClick={() => executeSingleEndpoint(endpoint.id)}
                       disabled={endpoint.isLoading || isRunningAll}
@@ -1277,7 +1294,7 @@ const MultipleEndpoints = () => {
                   <div className="text-xs text-blue-300 mb-1">
                     Reqline Syntax:
                   </div>
-                  <div className="code-block text-xs break-all font-mono">
+                  <div className="code-block text-xs break-words font-mono">
                     {endpoint.reqline}
                   </div>
                 </div>
@@ -1285,18 +1302,18 @@ const MultipleEndpoints = () => {
                 {/* Results */}
                 {endpoint.result && (
                   <div className="bg-green-500/10 rounded-lg p-2 sm:p-3 border border-green-500/30">
-                    <div className="text-xs text-green-300 mb-1 flex items-center gap-2">
-                      <CheckCircle size={12} />
-                      Success - {endpoint.result.response.http_status}
+                    <div className="text-xs text-green-300 mb-1 flex flex-col sm:flex-row sm:items-center gap-2">
+                      <div className="flex items-center gap-2">
+                        <CheckCircle size={12} />
+                        <span>Success - {endpoint.result.response.http_status}</span>
+                      </div>
                       {endpoint.executedAt && (
                         <span className="text-gray-400">
-                          (
-                          {new Date(endpoint.executedAt).toLocaleTimeString()}
-                          )
+                          ({new Date(endpoint.executedAt).toLocaleTimeString()})
                         </span>
                       )}
                     </div>
-                    <div className="code-block text-xs max-h-32 overflow-y-auto">
+                    <div className="code-block text-xs max-h-32 overflow-y-auto break-words">
                       {JSON.stringify(endpoint.result, null, 2)}
                     </div>
                   </div>
@@ -1304,18 +1321,18 @@ const MultipleEndpoints = () => {
 
                 {endpoint.error && (
                   <div className="bg-red-500/10 rounded-lg p-2 sm:p-3 border border-red-500/30">
-                    <div className="text-xs text-red-300 mb-1 flex items-center gap-2">
-                      <AlertTriangle size={12} />
-                      Error
+                    <div className="text-xs text-red-300 mb-1 flex flex-col sm:flex-row sm:items-center gap-2">
+                      <div className="flex items-center gap-2">
+                        <AlertTriangle size={12} />
+                        <span>Error</span>
+                      </div>
                       {endpoint.executedAt && (
                         <span className="text-gray-400">
-                          (
-                          {new Date(endpoint.executedAt).toLocaleTimeString()}
-                          )
+                          ({new Date(endpoint.executedAt).toLocaleTimeString()})
                         </span>
                       )}
                     </div>
-                    <div className="code-block text-xs text-red-200">
+                    <div className="code-block text-xs text-red-200 break-words">
                       {endpoint.error}
                     </div>
                   </div>
