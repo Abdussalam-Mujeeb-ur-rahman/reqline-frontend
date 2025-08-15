@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Send,
   Copy,
@@ -28,7 +29,6 @@ import {
 import axios from "axios";
 import LoadingSpinner from "./LoadingSpinner";
 import Toast from "./Toast";
-import MultipleEndpoints from "./MultipleEndpoints";
 import config from "../../config";
 import {
   validateReqlineLength,
@@ -88,8 +88,7 @@ const ReqlineParser = () => {
     type: "success" | "error";
   } | null>(null);
 
-  // Multiple Endpoints Navigation
-  const [showMultipleEndpoints, setShowMultipleEndpoints] = useState(false);
+  const navigate = useNavigate();
 
   // Keywords for Reqline syntax with smart templates
   const keywords = [
@@ -551,7 +550,7 @@ const ReqlineParser = () => {
 
             <button
               type="button"
-              onClick={() => setShowMultipleEndpoints(true)}
+              onClick={() => navigate('/multiple-endpoints')}
               className="btn-secondary flex items-center justify-center gap-2 text-xs sm:text-sm lg:text-base"
               aria-label="Test multiple endpoints"
             >
@@ -997,10 +996,7 @@ const ReqlineParser = () => {
         </div>
       )}
 
-      {/* Multiple Endpoints Page */}
-      {showMultipleEndpoints && (
-        <MultipleEndpoints onBack={() => setShowMultipleEndpoints(false)} />
-      )}
+
     </div>
   );
 };

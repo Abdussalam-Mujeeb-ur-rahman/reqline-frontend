@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Send,
   Copy,
@@ -92,11 +93,8 @@ interface TestSuite {
   expiresAt: number; // 4 hours from creation
 }
 
-interface MultipleEndpointsProps {
-  onBack: () => void;
-}
-
-const MultipleEndpoints = ({ onBack }: MultipleEndpointsProps) => {
+const MultipleEndpoints = () => {
+  const navigate = useNavigate();
   const [currentSuite, setCurrentSuite] = useState<TestSuite | null>(null);
   const [newEndpoint, setNewEndpoint] = useState({
     title: "",
@@ -495,7 +493,7 @@ const MultipleEndpoints = ({ onBack }: MultipleEndpointsProps) => {
       <div className="glass-dark rounded-xl sm:rounded-2xl p-3 sm:p-6 lg:p-8 animate-fade-in-up border border-white/10">
         <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 mb-4 sm:mb-6 lg:mb-8">
           <button
-            onClick={onBack}
+            onClick={() => navigate('/')}
             className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-r from-gray-500 to-gray-600 hover:from-gray-600 hover:to-gray-700 rounded-xl flex items-center justify-center shadow-lg transition-all duration-300 hover:scale-105"
             title="Go back"
             aria-label="Go back"
