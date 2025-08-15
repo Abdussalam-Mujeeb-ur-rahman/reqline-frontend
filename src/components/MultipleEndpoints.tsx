@@ -549,12 +549,15 @@ const MultipleEndpoints = () => {
 
     try {
       const response = await axios.post(
-        `${config.apiUrl}/parse`,
+        `${config.apiUrl}/`,
         {
           reqline: newEndpoint.reqline.trim(),
         },
         {
           timeout: 30000,
+          headers: {
+            "Content-Type": "application/json",
+          },
         }
       );
 
