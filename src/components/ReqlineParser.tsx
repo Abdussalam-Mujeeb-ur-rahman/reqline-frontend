@@ -23,10 +23,12 @@ import {
   Save,
   Key,
   ArrowUp,
+  Layers,
 } from "lucide-react";
 import axios from "axios";
 import LoadingSpinner from "./LoadingSpinner";
 import Toast from "./Toast";
+import MultipleEndpoints from "./MultipleEndpoints";
 import config from "../../config";
 import {
   validateReqlineLength,
@@ -86,6 +88,9 @@ const ReqlineParser = () => {
     type: "success" | "error";
   } | null>(null);
 
+  // Multiple Endpoints Navigation
+  const [showMultipleEndpoints, setShowMultipleEndpoints] = useState(false);
+
   // Keywords for Reqline syntax with smart templates
   const keywords = [
     { text: "HTTP", template: "HTTP GET" },
@@ -94,6 +99,8 @@ const ReqlineParser = () => {
     { text: "BODY", template: "BODY {}" },
     { text: "QUERY", template: 'QUERY {"query1": 1920933}' },
   ];
+
+
 
   // Check if a keyword is present in the current input
   const isKeywordPresent = (keyword: string): boolean => {
@@ -232,6 +239,8 @@ const ReqlineParser = () => {
           });
         }
       }, 100);
+
+      
     } catch (err: unknown) {
       const safeErrorMessage = createSafeErrorMessage(err);
       setError(safeErrorMessage);
@@ -363,6 +372,8 @@ const ReqlineParser = () => {
       setToast({ message: "Failed to copy to clipboard", type: "error" });
     }
   };
+
+
 
   // Scroll to top functionality
   useEffect(() => {
@@ -536,6 +547,16 @@ const ReqlineParser = () => {
             >
               <Key size={16} />
               Vault {showVault ? "(Hide)" : "(Show)"}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setShowMultipleEndpoints(true)}
+              className="btn-secondary flex items-center justify-center gap-2 text-xs sm:text-sm lg:text-base"
+              aria-label="Test multiple endpoints"
+            >
+              <Layers size={16} />
+              Test Multiple Endpoints
             </button>
           </div>
         </form>
@@ -741,6 +762,8 @@ const ReqlineParser = () => {
           </div>
         </div>
       )}
+
+
 
       {/* Error Display */}
       {error && (
@@ -972,6 +995,11 @@ const ReqlineParser = () => {
               )}
           </div>
         </div>
+      )}
+
+      {/* Multiple Endpoints Page */}
+      {showMultipleEndpoints && (
+        <MultipleEndpoints onBack={() => setShowMultipleEndpoints(false)} />
       )}
     </div>
   );
