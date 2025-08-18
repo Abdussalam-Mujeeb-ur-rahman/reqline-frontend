@@ -98,6 +98,22 @@ body {
   100% {
     opacity: 1;
   }
+}
+
+/* Custom scrollbar utilities */
+.scrollbar-hide {
+  -ms-overflow-style: none;  /* Internet Explorer 10+ */
+  scrollbar-width: none;  /* Firefox */
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;  /* Safari and Chrome */
+}
+
+/* Smooth scrolling for tab navigation */
+.overflow-x-auto {
+  scroll-behavior: smooth;
+}
   50% {
     opacity: 0.5;
   }

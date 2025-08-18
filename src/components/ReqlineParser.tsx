@@ -25,6 +25,8 @@ import {
   Key,
   ArrowUp,
   Layers,
+  BookOpen,
+  History,
 } from "lucide-react";
 import axios from "axios";
 import LoadingSpinner from "./LoadingSpinner";
@@ -65,8 +67,16 @@ interface VaultItem {
   id: string;
   name: string;
   value: string;
-  description?: string;
   createdAt: number;
+  updatedAt: number;
+}
+
+interface RequestHistory {
+  id: string;
+  reqline: string;
+  result: ApiResponse | null;
+  error: string | null;
+  timestamp: number;
 }
 
 const ReqlineParser = () => {
@@ -74,14 +84,15 @@ const ReqlineParser = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [result, setResult] = useState<ApiResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [showExamples, setShowExamples] = useState(true);
-  const [showVault, setShowVault] = useState(false);
+  const [activeTab, setActiveTab] = useState<
+    "request" | "vault" | "examples" | "history"
+  >("request");
   const [showScrollToTop, setShowScrollToTop] = useState(false);
   const [vaultItems, setVaultItems] = useState<VaultItem[]>([]);
+  const [requestHistory, setRequestHistory] = useState<RequestHistory[]>([]);
   const [newVaultItem, setNewVaultItem] = useState({
     name: "",
     value: "",
-    description: "",
   });
   const [toast, setToast] = useState<{
     message: string;
@@ -99,7 +110,40 @@ const ReqlineParser = () => {
     { text: "QUERY", template: 'QUERY {"query1": 1920933}' },
   ];
 
-
+  // Examples for the Examples tab
+  const examples = [
+    {
+      name: "Simple GET Request",
+      description: "Basic HTTP GET request to fetch data",
+      reqline: "HTTP GET | URL https://dummyjson.com/quotes/3",
+      color: "from-blue-500 to-blue-600",
+      icon: <Globe className="w-4 h-4 sm:w-5 sm:h-5 text-white" />,
+    },
+    {
+      name: "GET with Query Parameters",
+      description: "Request with query parameters",
+      reqline:
+        'HTTP GET | URL https://dummyjson.com/quotes | QUERY {"refid": 1920933}',
+      color: "from-green-500 to-green-600",
+      icon: <Code className="w-4 h-4 sm:w-5 sm:h-5 text-white" />,
+    },
+    {
+      name: "POST with JSON Body",
+      description: "POST request with JSON payload",
+      reqline:
+        'HTTP POST | URL https://dummyjson.com/products/add | HEADERS {"Content-Type": "application/json"} | BODY {"title": "New Product", "price": 99.99}',
+      color: "from-purple-500 to-purple-600",
+      icon: <FileText className="w-4 h-4 sm:w-5 sm:h-5 text-white" />,
+    },
+    {
+      name: "Authenticated Request",
+      description: "Request with authorization header",
+      reqline:
+        'HTTP GET | URL https://api.example.com/user/profile | HEADERS {"Authorization": "Bearer your-token-here"}',
+      color: "from-orange-500 to-orange-600",
+      icon: <Key className="w-4 h-4 sm:w-5 sm:h-5 text-white" />,
+    },
+  ];
 
   // Check if a keyword is present in the current input
   const isKeywordPresent = (keyword: string): boolean => {
@@ -108,15 +152,7 @@ const ReqlineParser = () => {
 
   // Handle keyword click to insert template with smart delimiter logic
   const handleKeywordClick = (template: string) => {
-    const textarea = document.querySelector(
-      'textarea[aria-label="Reqline syntax input"]'
-    ) as HTMLTextAreaElement;
-    if (!textarea) return;
-
-    const start = textarea.selectionStart;
-    const end = textarea.selectionEnd;
     const currentValue = reqline;
-
     let insertText = template;
 
     // Smart delimiter logic
@@ -125,86 +161,41 @@ const ReqlineParser = () => {
       insertText = " | " + template;
     }
 
-    // Insert template at cursor position
-    const newValue =
-      currentValue.substring(0, start) +
-      insertText +
-      currentValue.substring(end);
-    setReqline(newValue);
-
-    // Set cursor position after inserted text
-    setTimeout(() => {
-      textarea.focus();
-      textarea.setSelectionRange(
-        start + insertText.length,
-        start + insertText.length
-      );
-    }, 0);
+    setReqline(currentValue + insertText);
   };
 
-  const examples = [
-    {
-      name: "Simple GET request",
-      reqline: "HTTP GET | URL https://dummyjson.com/quotes/3",
-      description: "Basic request to fetch data",
-      icon: <Zap className="w-4 h-4" />,
-      color: "from-blue-500 to-cyan-500",
-    },
-    {
-      name: "GET with query parameters",
-      reqline:
-        'HTTP GET | URL https://dummyjson.com/quotes/3 | QUERY {"refid": 1920933}',
-      description: "Request with additional parameters",
-      icon: <Code className="w-4 h-4" />,
-      color: "from-purple-500 to-pink-500",
-    },
-    {
-      name: "POST with body",
-      reqline:
-        'HTTP POST | URL https://jsonplaceholder.typicode.com/posts | BODY {"title": "Test", "body": "Test body", "userId": 1}',
-      description: "Create new resource with data",
-      icon: <Send className="w-4 h-4" />,
-      color: "from-green-500 to-emerald-500",
-    },
-    {
-      name: "Complete request with headers",
-      reqline:
-        'HTTP GET | URL https://dummyjson.com/quotes/3 | HEADERS {"Authorization": "Bearer token"} | QUERY {"refid": 1920933}',
-      description: "Full request with authentication",
-      icon: <Sparkles className="w-4 h-4" />,
-      color: "from-orange-500 to-red-500",
-    },
-  ];
+  const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const value = e.target.value;
 
-  const handleInputChange = useCallback(
-    (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-      const sanitizedValue = sanitizeInput(e.target.value);
-      setReqline(sanitizedValue);
-    },
-    []
-  );
+    // Validate input length
+    const validation = validateReqlineLength(value);
+    if (!validation.isValid) {
+      setToast({
+        message: validation.error || "Input too long",
+        type: "error",
+      });
+      return;
+    }
+
+    setReqline(value);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Validate input
-    const validation = validateReqlineLength(reqline);
-    if (!validation.isValid) {
-      setError(validation.error!);
+    if (!reqline.trim()) {
+      setToast({ message: "Please enter reqline syntax", type: "error" });
       return;
     }
 
     // Check rate limiting
-    const rateLimitCheck = checkRateLimit("user");
+    const rateLimitCheck = checkRateLimit("default");
     if (!rateLimitCheck.allowed) {
       setError(
         `Too many requests. Please wait ${rateLimitCheck.retryAfter} seconds before trying again.`
       );
       return;
     }
-
-    // Auto-collapse examples when sending request
-    setShowExamples(false);
 
     setIsLoading(true);
     setError(null);
@@ -226,6 +217,18 @@ const ReqlineParser = () => {
       const sanitizedData = sanitizeResponseData(response.data);
       setResult(sanitizedData as ApiResponse);
 
+      // Add to history
+      const historyItem: RequestHistory = {
+        id: Date.now().toString(),
+        reqline: reqline.trim(),
+        result: sanitizedData as ApiResponse,
+        error: null,
+        timestamp: Date.now(),
+      };
+      const updatedHistory = [historyItem, ...requestHistory.slice(0, 9)]; // Keep last 10
+      setRequestHistory(updatedHistory);
+      saveRequestHistoryToStorage(updatedHistory);
+
       // Auto-scroll to response details after successful response
       setTimeout(() => {
         const responseDetailsSection = document.getElementById(
@@ -238,11 +241,21 @@ const ReqlineParser = () => {
           });
         }
       }, 100);
-
-      
     } catch (err: unknown) {
       const safeErrorMessage = createSafeErrorMessage(err);
       setError(safeErrorMessage);
+
+      // Add to history with error
+      const historyItem: RequestHistory = {
+        id: Date.now().toString(),
+        reqline: reqline.trim(),
+        result: null,
+        error: safeErrorMessage,
+        timestamp: Date.now(),
+      };
+      const updatedHistory = [historyItem, ...requestHistory.slice(0, 9)]; // Keep last 10
+      setRequestHistory(updatedHistory);
+      saveRequestHistoryToStorage(updatedHistory);
 
       // Log the full error for debugging (only in development)
       if (config.isDevelopment) {
@@ -307,6 +320,41 @@ const ReqlineParser = () => {
   }, []);
 
   // Vault management functions
+  const loadVaultFromStorage = (): VaultItem[] => {
+    try {
+      const stored = localStorage.getItem("reqline-vault");
+      if (!stored) return [];
+
+      const vaultItems: VaultItem[] = JSON.parse(stored);
+      const now = Date.now();
+      const expiryTime = 48 * 60 * 60 * 1000; // 48 hours
+
+      // Filter out expired items
+      const validItems = vaultItems.filter(
+        (item) => now - item.createdAt <= expiryTime
+      );
+
+      // Update storage with only valid items
+      if (validItems.length !== vaultItems.length) {
+        localStorage.setItem("reqline-vault", JSON.stringify(validItems));
+      }
+
+      return validItems;
+    } catch (error) {
+      console.error("Error loading vault from storage:", error);
+      return [];
+    }
+  };
+
+  const saveVaultToStorage = (items: VaultItem[]): void => {
+    try {
+      localStorage.setItem("reqline-vault", JSON.stringify(items));
+    } catch (error) {
+      console.error("Error saving vault to storage:", error);
+      setToast({ message: "Failed to save vault", type: "error" });
+    }
+  };
+
   const addVaultItem = () => {
     if (!newVaultItem.name.trim() || !newVaultItem.value.trim()) {
       setToast({ message: "Name and value are required", type: "error" });
@@ -317,47 +365,69 @@ const ReqlineParser = () => {
       id: Date.now().toString(),
       name: newVaultItem.name.trim(),
       value: newVaultItem.value.trim(),
-      description: newVaultItem.description.trim() || undefined,
       createdAt: Date.now(),
+      updatedAt: Date.now(),
     };
 
-    setVaultItems((prev) => [...prev, item]);
-    setNewVaultItem({ name: "", value: "", description: "" });
+    const updatedItems = [...vaultItems, item];
+    setVaultItems(updatedItems);
+    saveVaultToStorage(updatedItems);
+    setNewVaultItem({
+      name: "",
+      value: "",
+    });
     setToast({ message: "Item added to vault", type: "success" });
   };
 
   const removeVaultItem = (id: string) => {
-    setVaultItems((prev) => prev.filter((item) => item.id !== id));
+    const updatedItems = vaultItems.filter((item) => item.id !== id);
+    setVaultItems(updatedItems);
+    saveVaultToStorage(updatedItems);
     setToast({ message: "Item removed from vault", type: "success" });
   };
 
-  const useVaultItem = (item: VaultItem) => {
-    const textarea = document.querySelector(
-      'textarea[aria-label="Reqline syntax input"]'
-    ) as HTMLTextAreaElement;
-    if (!textarea) return;
+  // Request history management functions
+  const loadRequestHistoryFromStorage = (): RequestHistory[] => {
+    try {
+      const stored = localStorage.getItem("reqline-request-history");
+      if (!stored) return [];
 
-    const start = textarea.selectionStart;
-    const end = textarea.selectionEnd;
-    const currentValue = reqline;
+      const history: RequestHistory[] = JSON.parse(stored);
+      const now = Date.now();
+      const expiryTime = 48 * 60 * 60 * 1000; // 48 hours
 
-    // Insert vault value at cursor position
-    const newValue =
-      currentValue.substring(0, start) +
-      item.value +
-      currentValue.substring(end);
-    setReqline(newValue);
-
-    // Set cursor position after inserted value
-    setTimeout(() => {
-      textarea.focus();
-      textarea.setSelectionRange(
-        start + item.value.length,
-        start + item.value.length
+      // Filter out expired items
+      const validHistory = history.filter(
+        (item) => now - item.timestamp <= expiryTime
       );
-    }, 0);
 
-    setToast({ message: `Inserted ${item.name}`, type: "success" });
+      // Update storage with only valid items
+      if (validHistory.length !== history.length) {
+        localStorage.setItem(
+          "reqline-request-history",
+          JSON.stringify(validHistory)
+        );
+      }
+
+      return validHistory;
+    } catch (error) {
+      console.error("Error loading request history from storage:", error);
+      return [];
+    }
+  };
+
+  const saveRequestHistoryToStorage = (history: RequestHistory[]): void => {
+    try {
+      localStorage.setItem("reqline-request-history", JSON.stringify(history));
+    } catch (error) {
+      console.error("Error saving request history to storage:", error);
+    }
+  };
+
+  const useVaultItem = (item: VaultItem) => {
+    setReqline(item.value);
+    setActiveTab("request"); // Switch to request tab
+    setToast({ message: `Loaded: ${item.name}`, type: "success" });
   };
 
   const copyVaultItem = async (item: VaultItem) => {
@@ -372,7 +442,27 @@ const ReqlineParser = () => {
     }
   };
 
+  const useHistoryItem = (item: RequestHistory) => {
+    setReqline(item.reqline);
+    setActiveTab("request"); // Switch to request tab
+    setToast({ message: "Request loaded from history", type: "success" });
+  };
 
+  const removeHistoryItem = (id: string) => {
+    const updatedHistory = requestHistory.filter((item) => item.id !== id);
+    setRequestHistory(updatedHistory);
+    saveRequestHistoryToStorage(updatedHistory);
+    setToast({ message: "Item removed from history", type: "success" });
+  };
+
+  // Initialize vault and request history from localStorage
+  useEffect(() => {
+    const loadedVaultItems = loadVaultFromStorage();
+    setVaultItems(loadedVaultItems);
+
+    const loadedHistory = loadRequestHistoryFromStorage();
+    setRequestHistory(loadedHistory);
+  }, []);
 
   // Scroll to top functionality
   useEffect(() => {
@@ -417,586 +507,549 @@ const ReqlineParser = () => {
         </button>
       )}
 
-      {/* Main Input Section */}
+      {/* Header */}
       <div className="glass-dark rounded-xl sm:rounded-2xl p-3 sm:p-6 lg:p-8 animate-fade-in-up border border-white/10">
-        <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 mb-4 sm:mb-6 lg:mb-8">
-          <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-primary rounded-xl flex items-center justify-center shadow-lg">
-            <FileText className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
-          </div>
-          <div>
-            <h2 className="text-lg sm:text-xl lg:text-2xl font-bold text-white">
-              Request Syntax
-            </h2>
-            <p className="text-blue-200 text-xs sm:text-sm lg:text-base">
-              Enter your Reqline syntax below
-            </p>
-          </div>
-        </div>
-
-        <form
-          onSubmit={handleSubmit}
-          className="space-y-3 sm:space-y-4 lg:space-y-6"
-        >
-          {/* Keyword Suggestions */}
-          <div className="flex flex-wrap gap-2 sm:gap-3">
-            {keywords.map((keyword, index) => (
-              <button
-                key={index}
-                type="button"
-                onClick={() => handleKeywordClick(keyword.template)}
-                className={`px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-mono font-semibold transition-all duration-300 hover:scale-105 ${
-                  isKeywordPresent(keyword.text)
-                    ? "bg-green-500/20 text-green-300 border border-green-500/30"
-                    : "bg-red-500/20 text-red-300 border border-red-500/30 hover:bg-red-500/30"
-                }`}
-                title={`Insert ${keyword.template}`}
-                aria-label={`Insert ${keyword.template}`}
-              >
-                {keyword.text}
-              </button>
-            ))}
-          </div>
-
-          <div className="relative">
-            <textarea
-              value={reqline}
-              onChange={handleInputChange}
-              placeholder={
-                'HTTP GET | URL https://dummyjson.com/quotes/3 | QUERY {"refid": 1920933}'
-              }
-              className="w-full h-20 sm:h-24 lg:h-32 bg-black/40 border border-white/20 rounded-xl text-white placeholder-blue-300 resize-none text-xs sm:text-sm font-mono p-3 sm:p-4 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300"
-              maxLength={10000}
-              aria-label="Reqline syntax input"
-            />
-            <div className="absolute top-2 sm:top-3 lg:top-4 right-2 sm:right-3 lg:right-4 text-blue-300 text-xs bg-black/60 px-2 py-1 rounded-full">
-              {reqline.length}/10000
+        <div className="flex flex-col gap-3 sm:gap-4 mb-4 sm:mb-6 lg:mb-8">
+          {/* Top row: Back button, icon, title */}
+          <div className="flex items-center gap-3 sm:gap-4">
+            <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-r from-blue-500 to-purple-500 rounded-xl flex items-center justify-center shadow-lg">
+              <FileText className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <h2 className="text-lg sm:text-xl lg:text-2xl font-bold text-white truncate">
+                API Request Tester
+              </h2>
+              <p className="text-blue-200 text-xs sm:text-sm lg:text-base">
+                Test individual API endpoints with Reqline syntax
+              </p>
             </div>
           </div>
 
-          <div className="flex flex-col sm:flex-row flex-wrap gap-2 sm:gap-3 lg:gap-4">
+          {/* Tab Navigation */}
+          <div className="flex border-b border-white/10 overflow-x-auto scrollbar-hide">
             <button
-              type="submit"
-              disabled={isLoading || !reqline.trim()}
-              className="btn-primary flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none text-xs sm:text-sm lg:text-base"
-              aria-label="Execute request"
+              onClick={() => setActiveTab("request")}
+              className={`flex items-center gap-2 px-4 py-3 text-sm font-medium transition-all duration-300 border-b-2 flex-shrink-0 ${
+                activeTab === "request"
+                  ? "text-blue-300 border-blue-500 bg-blue-500/10"
+                  : "text-gray-400 border-transparent hover:text-white hover:bg-white/5"
+              }`}
             >
-              {isLoading ? <LoadingSpinner size={16} /> : <Send size={16} />}
-              {isLoading ? "Processing..." : "Execute Request"}
+              <Send size={16} />
+              <span className="hidden sm:inline">Single Request</span>
+              <span className="sm:hidden">Request</span>
             </button>
-
             <button
-              type="button"
-              onClick={() => {
-                const newShowExamples = !showExamples;
-                setShowExamples(newShowExamples);
-                if (newShowExamples) {
-                  setTimeout(() => {
-                    const examplesSection =
-                      document.getElementById("examples-section");
-                    if (examplesSection) {
-                      examplesSection.scrollIntoView({
-                        behavior: "smooth",
-                        block: "start",
-                      });
-                    }
-                  }, 100);
-                }
-              }}
-              className="btn-secondary flex items-center justify-center gap-2 text-xs sm:text-sm lg:text-base"
-              aria-label={showExamples ? "Hide examples" : "Show examples"}
-            >
-              {showExamples ? (
-                <ChevronUp size={16} />
-              ) : (
-                <ChevronDown size={16} />
-              )}
-              Examples {showExamples ? "(Hide)" : "(Show)"}
-            </button>
-
-            <button
-              type="button"
-              onClick={handleClear}
-              className="btn-secondary flex items-center justify-center gap-2 text-xs sm:text-sm lg:text-base"
-              aria-label="Clear all data"
-            >
-              <RotateCcw size={16} />
-              Clear
-            </button>
-
-            <button
-              type="button"
-              onClick={() => {
-                const newShowVault = !showVault;
-                setShowVault(newShowVault);
-                if (newShowVault) {
-                  setTimeout(() => {
-                    const vaultSection =
-                      document.getElementById("vault-section");
-                    if (vaultSection) {
-                      vaultSection.scrollIntoView({
-                        behavior: "smooth",
-                        block: "start",
-                      });
-                    }
-                  }, 100);
-                }
-              }}
-              className="btn-secondary flex items-center justify-center gap-2 text-xs sm:text-sm lg:text-base"
-              aria-label={showVault ? "Hide vault" : "Show vault"}
+              onClick={() => setActiveTab("vault")}
+              className={`flex items-center gap-2 px-4 py-3 text-sm font-medium transition-all duration-300 border-b-2 flex-shrink-0 ${
+                activeTab === "vault"
+                  ? "text-blue-300 border-blue-500 bg-blue-500/10"
+                  : "text-gray-400 border-transparent hover:text-white hover:bg-white/5"
+              }`}
             >
               <Key size={16} />
-              Vault {showVault ? "(Hide)" : "(Show)"}
+              <span className="hidden sm:inline">Vault</span>
+              <span className="sm:hidden">Vault</span>
             </button>
-
             <button
-              type="button"
-              onClick={() => navigate('/multiple-endpoints')}
-              className="btn-secondary flex items-center justify-center gap-2 text-xs sm:text-sm lg:text-base"
-              aria-label="Test multiple endpoints"
+              onClick={() => setActiveTab("examples")}
+              className={`flex items-center gap-2 px-4 py-3 text-sm font-medium transition-all duration-300 border-b-2 flex-shrink-0 ${
+                activeTab === "examples"
+                  ? "text-blue-300 border-blue-500 bg-blue-500/10"
+                  : "text-gray-400 border-transparent hover:text-white hover:bg-white/5"
+              }`}
             >
-              <Layers size={16} />
-              Test Multiple Endpoints
+              <Info size={16} />
+              <span className="hidden sm:inline">Examples</span>
+              <span className="sm:hidden">Examples</span>
+            </button>
+            <button
+              onClick={() => setActiveTab("history")}
+              className={`flex items-center gap-2 px-4 py-3 text-sm font-medium transition-all duration-300 border-b-2 flex-shrink-0 ${
+                activeTab === "history"
+                  ? "text-blue-300 border-blue-500 bg-blue-500/10"
+                  : "text-gray-400 border-transparent hover:text-white hover:bg-white/5"
+              }`}
+            >
+              <History size={16} />
+              <span className="hidden sm:inline">History</span>
+              <span className="sm:hidden">History</span>
             </button>
           </div>
-        </form>
-      </div>
 
-      {/* Examples Section */}
-      {showExamples && (
-        <div
-          id="examples-section"
-          className="glass-dark rounded-xl sm:rounded-2xl p-3 sm:p-6 lg:p-8 animate-slide-in-right border border-white/10"
-        >
-          <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 mb-4 sm:mb-8">
-            <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-accent rounded-xl flex items-center justify-center shadow-lg">
-              <Info className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
-            </div>
-            <div>
-              <h3 className="text-lg sm:text-xl lg:text-2xl font-bold text-white">
-                Example Requests
-              </h3>
-              <p className="text-blue-200 text-xs sm:text-sm lg:text-base">
-                Common use cases and syntax examples
-              </p>
-            </div>
-          </div>
-
-          <div className="grid gap-3 sm:gap-6">
-            {examples.map((example, index) => (
-              <div
-                key={index}
-                className="bg-black/30 rounded-xl p-3 sm:p-6 border border-white/10 hover:bg-black/40 transition-all duration-300 group"
-              >
-                <div className="flex flex-col gap-3 sm:gap-4 mb-3 sm:mb-4">
-                  <div className="flex items-start gap-3">
-                    <div
-                      className={`w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-r ${example.color} rounded-lg flex items-center justify-center flex-shrink-0`}
-                    >
-                      {example.icon}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <h4 className="font-semibold text-white text-sm sm:text-base lg:text-lg mb-1">
-                        {example.name}
-                      </h4>
-                      <p className="text-blue-200 text-xs sm:text-sm">
-                        {example.description}
-                      </p>
-                    </div>
-                    <button
-                      onClick={() => copyToClipboard(example.reqline)}
-                      className="p-2 sm:p-3 text-blue-300 hover:text-white hover:bg-white/10 rounded-xl transition-all duration-300 group-hover:scale-110 flex-shrink-0"
-                      title="Copy to clipboard"
-                      aria-label={`Copy ${example.name} example`}
-                    >
-                      <Copy size={16} />
-                    </button>
-                  </div>
-                </div>
-                <div className="code-block text-xs sm:text-sm lg:text-base leading-relaxed">
-                  {example.reqline}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Vault Section */}
-      {showVault && (
-        <div
-          id="vault-section"
-          className="glass-dark rounded-xl sm:rounded-2xl p-3 sm:p-6 lg:p-8 animate-slide-in-right border border-white/10"
-        >
-          <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 mb-4 sm:mb-8">
-            <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-r from-purple-500 to-pink-500 rounded-xl flex items-center justify-center shadow-lg">
-              <Key className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
-            </div>
-            <div>
-              <h3 className="text-lg sm:text-xl lg:text-2xl font-bold text-white">
-                Secure Vault
-              </h3>
-              <p className="text-blue-200 text-xs sm:text-sm lg:text-base">
-                Store and reuse tokens, keys, and other data
-              </p>
-            </div>
-          </div>
-
-          {/* Add New Item */}
-          <div className="bg-black/30 rounded-xl p-3 sm:p-6 border border-white/10 mb-4 sm:mb-6">
-            <h4 className="text-sm sm:text-base font-semibold text-white mb-3 sm:mb-4 flex items-center gap-2">
-              <Plus className="w-4 h-4" />
-              Add New Item
-            </h4>
-            <div className="grid gap-3 sm:gap-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-                <input
-                  type="text"
-                  placeholder="Name (e.g., JWT Token)"
-                  value={newVaultItem.name}
-                  onChange={(e) =>
-                    setNewVaultItem((prev) => ({
-                      ...prev,
-                      name: e.target.value,
-                    }))
-                  }
-                  className="bg-black/40 border border-white/20 rounded-lg text-white placeholder-blue-300 text-xs sm:text-sm p-2 sm:p-3 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                />
-                <input
-                  type="text"
-                  placeholder="Description (optional)"
-                  value={newVaultItem.description}
-                  onChange={(e) =>
-                    setNewVaultItem((prev) => ({
-                      ...prev,
-                      description: e.target.value,
-                    }))
-                  }
-                  className="bg-black/40 border border-white/20 rounded-lg text-white placeholder-blue-300 text-xs sm:text-sm p-2 sm:p-3 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                />
-              </div>
-              <textarea
-                placeholder="Value (e.g., eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...)"
-                value={newVaultItem.value}
-                onChange={(e) =>
-                  setNewVaultItem((prev) => ({
-                    ...prev,
-                    value: e.target.value,
-                  }))
-                }
-                className="bg-black/40 border border-white/20 rounded-lg text-white placeholder-blue-300 text-xs sm:text-sm p-2 sm:p-3 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-none h-20"
-              />
+          {/* Action Buttons - Only show in Request tab */}
+          {activeTab === "request" && (
+            <div className="flex flex-wrap gap-2 justify-center sm:justify-end">
               <button
-                onClick={addVaultItem}
-                className="btn-primary flex items-center justify-center gap-2 text-xs sm:text-sm"
+                onClick={() => navigate("/multiple-endpoints")}
+                className="btn-secondary flex items-center gap-1 sm:gap-2 text-xs sm:text-sm px-3 py-2 sm:px-4 sm:py-2"
+                title="Test multiple endpoints"
+                aria-label="Test multiple endpoints"
               >
-                <Save size={16} />
-                Add to Vault
+                <Layers size={14} className="sm:w-4 sm:h-4" />
+                <span className="hidden sm:inline">Multiple Endpoints</span>
+                <span className="sm:hidden">Multiple</span>
               </button>
             </div>
-          </div>
+          )}
+        </div>
 
-          {/* Vault Items */}
-          <div className="space-y-3 sm:space-y-4">
-            {vaultItems.length === 0 ? (
-              <div className="text-center py-8 text-blue-200 text-sm">
-                No items in vault. Add your first item above.
-              </div>
-            ) : (
-              vaultItems.map((item) => (
-                <div
-                  key={item.id}
-                  className="bg-black/30 rounded-xl p-3 sm:p-4 border border-white/10 hover:bg-black/40 transition-all duration-300"
+        {/* Tab Content */}
+        <div className="space-y-4 sm:space-y-6">
+          {/* Single Request Tab */}
+          {activeTab === "request" && (
+            <div className="space-y-4 sm:space-y-6">
+              {/* Request Form */}
+              <div className="bg-black/30 rounded-xl p-3 sm:p-6 border border-white/10">
+                <h4 className="text-sm sm:text-base font-semibold text-white mb-3 sm:mb-4 flex items-center gap-2">
+                  <Send className="w-4 h-4" />
+                  Request Syntax
+                </h4>
+                <form
+                  onSubmit={handleSubmit}
+                  className="space-y-3 sm:space-y-4"
                 >
-                  <div className="flex items-start justify-between gap-3 sm:gap-4">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
-                        <h5 className="font-semibold text-white text-sm sm:text-base">
-                          {item.name}
-                        </h5>
-                        <span className="text-xs text-blue-300 bg-blue-500/20 px-2 py-1 rounded-full">
-                          {new Date(item.createdAt).toLocaleDateString()}
-                        </span>
-                      </div>
-                      {item.description && (
-                        <p className="text-blue-200 text-xs sm:text-sm mb-2">
-                          {item.description}
-                        </p>
+                  {/* Keyword Suggestions */}
+                  <div className="flex flex-wrap gap-2 sm:gap-3">
+                    {keywords.map((keyword, index) => (
+                      <button
+                        key={index}
+                        type="button"
+                        onClick={() => handleKeywordClick(keyword.template)}
+                        className={`px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-mono font-semibold transition-all duration-300 hover:scale-105 ${
+                          isKeywordPresent(keyword.text)
+                            ? "bg-green-500/20 text-green-300 border border-green-500/30"
+                            : "bg-red-500/20 text-red-300 border border-red-500/30 hover:bg-red-500/30"
+                        }`}
+                        title={`Insert ${keyword.template}`}
+                        aria-label={`Insert ${keyword.template}`}
+                      >
+                        {keyword.text}
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="relative">
+                    <textarea
+                      value={reqline}
+                      onChange={handleInputChange}
+                      placeholder={
+                        'HTTP GET | URL https://dummyjson.com/quotes/3 | QUERY {"refid": 1920933}'
+                      }
+                      className="w-full h-20 sm:h-24 lg:h-32 bg-black/40 border border-white/20 rounded-xl text-white placeholder-blue-300 resize-none text-xs sm:text-sm font-mono p-3 sm:p-4 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300"
+                      maxLength={10000}
+                      aria-label="Reqline syntax input"
+                    />
+                    <div className="absolute top-2 sm:top-3 lg:top-4 right-2 sm:right-3 lg:right-4 text-blue-300 text-xs bg-black/60 px-2 py-1 rounded-full">
+                      {reqline.length}/10000
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col sm:flex-row flex-wrap gap-2 sm:gap-3">
+                    <button
+                      type="submit"
+                      disabled={isLoading || !reqline.trim()}
+                      className="btn-primary flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed text-xs sm:text-sm flex-1 sm:flex-none"
+                      aria-label="Execute request"
+                    >
+                      {isLoading ? (
+                        <LoadingSpinner size={16} />
+                      ) : (
+                        <Send size={16} />
                       )}
-                      <div className="code-block text-xs break-all">
-                        {item.value.length > 50
-                          ? `${item.value.substring(0, 50)}...`
-                          : item.value}
-                      </div>
-                    </div>
-                    <div className="flex gap-2 flex-shrink-0">
-                      <button
-                        onClick={() => useVaultItem(item)}
-                        className="p-2 text-blue-300 hover:text-white hover:bg-white/10 rounded-lg transition-all duration-300"
-                        title="Insert into request"
-                        aria-label={`Insert ${item.name} into request`}
-                      >
-                        <ArrowRight size={16} />
-                      </button>
-                      <button
-                        onClick={() => copyVaultItem(item)}
-                        className="p-2 text-blue-300 hover:text-white hover:bg-white/10 rounded-lg transition-all duration-300"
-                        title="Copy to clipboard"
-                        aria-label={`Copy ${item.name} to clipboard`}
-                      >
-                        <Copy size={16} />
-                      </button>
-                      <button
-                        onClick={() => removeVaultItem(item.id)}
-                        className="p-2 text-red-300 hover:text-white hover:bg-red-500/20 rounded-lg transition-all duration-300"
-                        title="Remove from vault"
-                        aria-label={`Remove ${item.name} from vault`}
-                      >
-                        <Trash2 size={16} />
-                      </button>
-                    </div>
+                      {isLoading ? "Processing..." : "Execute Request"}
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handleClear}
+                      className="btn-secondary flex items-center justify-center gap-2 text-xs sm:text-sm"
+                      aria-label="Clear all data"
+                    >
+                      <RotateCcw size={16} />
+                      Clear
+                    </button>
                   </div>
-                </div>
-              ))
-            )}
-          </div>
-        </div>
-      )}
-
-
-
-      {/* Error Display */}
-      {error && (
-        <div className="glass-dark border border-red-500/30 rounded-xl sm:rounded-2xl p-3 sm:p-4 lg:p-6 animate-fade-in-up">
-          <div className="flex items-start gap-3 sm:gap-4 mb-3 sm:mb-4">
-            <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-error rounded-xl flex items-center justify-center flex-shrink-0">
-              <AlertTriangle className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
-            </div>
-            <div className="flex-1">
-              <h3 className="text-base sm:text-lg lg:text-xl font-bold text-white mb-2">
-                Error
-              </h3>
-              <p className="text-red-200 text-xs sm:text-sm lg:text-lg">
-                {error}
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Results Display */}
-      {result && (
-        <div
-          id="results-section"
-          className="space-y-4 sm:space-y-6 lg:space-y-8 animate-fade-in-up"
-        >
-          {/* Copy JSON Button */}
-          <div className="flex justify-end">
-            <button
-              onClick={copyResultAsJson}
-              className="btn-secondary flex items-center gap-2 text-xs sm:text-sm lg:text-base"
-              title="Copy full result as JSON"
-              aria-label="Copy result as JSON"
-            >
-              <Download size={16} />
-              <span className="hidden sm:inline">Copy Result as JSON</span>
-              <span className="sm:hidden">Copy JSON</span>
-            </button>
-          </div>
-
-          {/* Request Details */}
-          <div className="glass-dark rounded-xl sm:rounded-2xl p-3 sm:p-6 lg:p-8 border border-white/10">
-            <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 mb-4 sm:mb-6 lg:mb-8">
-              <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-success rounded-xl flex items-center justify-center shadow-lg">
-                <CheckCircle className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
-              </div>
-              <div>
-                <h3 className="text-lg sm:text-xl lg:text-2xl font-bold text-white">
-                  Request Details
-                </h3>
-                <p className="text-blue-200 text-xs sm:text-sm lg:text-base">
-                  Parsed request information
-                </p>
-              </div>
-            </div>
-
-            <div className="grid lg:grid-cols-2 gap-4 sm:gap-6 lg:gap-8">
-              <div className="space-y-3 sm:space-y-4 lg:space-y-6">
-                <div>
-                  <h4 className="text-xs sm:text-sm font-semibold text-blue-200 mb-2 sm:mb-3 flex items-center gap-2">
-                    <Globe className="w-3 h-3 sm:w-4 sm:h-4" />
-                    Full URL
-                  </h4>
-                  <div className="code-block break-all text-xs sm:text-sm">
-                    {result.request.full_url}
-                  </div>
-                </div>
-
-                <div>
-                  <h4 className="text-xs sm:text-sm font-semibold text-blue-200 mb-2 sm:mb-3 flex items-center gap-2">
-                    <Settings className="w-3 h-3 sm:w-4 sm:h-4" />
-                    Query Parameters
-                  </h4>
-                  <div className="code-block text-xs sm:text-sm">
-                    {JSON.stringify(result.request.query, null, 2)}
-                  </div>
-                </div>
+                </form>
               </div>
 
-              <div className="space-y-3 sm:space-y-4 lg:space-y-6">
-                <div>
-                  <h4 className="text-xs sm:text-sm font-semibold text-blue-200 mb-2 sm:mb-3 flex items-center gap-2">
-                    <FileText className="w-3 h-3 sm:w-4 sm:h-4" />
-                    Headers
+              {/* Results Section */}
+              {(result || error) && (
+                <div
+                  id="response-details-section"
+                  className="bg-black/30 rounded-xl p-3 sm:p-6 border border-white/10"
+                >
+                  <h4 className="text-sm sm:text-base font-semibold text-white mb-3 sm:mb-4 flex items-center gap-2">
+                    {result ? (
+                      <CheckCircle className="w-4 h-4 text-green-400" />
+                    ) : (
+                      <AlertTriangle className="w-4 h-4 text-red-400" />
+                    )}
+                    {result ? "Response Details" : "Error Details"}
                   </h4>
-                  <div className="code-block text-xs sm:text-sm">
-                    {JSON.stringify(result.request.headers, null, 2)}
-                  </div>
-                </div>
 
-                <div>
-                  <h4 className="text-xs sm:text-sm font-semibold text-blue-200 mb-2 sm:mb-3 flex items-center gap-2">
-                    <Package className="w-3 h-3 sm:w-4 sm:h-4" />
-                    Request Body
-                  </h4>
-                  <div className="code-block text-xs sm:text-sm">
-                    {JSON.stringify(result.request.body, null, 2)}
-                  </div>
-                </div>
-
-                {result.request.cookies_sent &&
-                  result.request.cookies_sent.length > 0 && (
-                    <div>
-                      <h4 className="text-xs sm:text-sm font-semibold text-blue-200 mb-2 sm:mb-3 flex items-center gap-2">
-                        <Settings className="w-3 h-3 sm:w-4 sm:h-4" />
-                        Cookies Sent
-                      </h4>
-                      <div className="code-block text-xs sm:text-sm">
-                        {result.request.cookies_sent.map((cookie, index) => (
-                          <div key={index} className="text-green-300">
-                            {cookie}
+                  {result && (
+                    <div className="space-y-4">
+                      {/* Response Summary */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                        <div className="bg-green-500/10 rounded-lg p-3 border border-green-500/30">
+                          <div className="text-xs text-green-300 mb-1">
+                            Status
                           </div>
-                        ))}
+                          <div className="text-white font-semibold">
+                            {result.response.http_status}
+                          </div>
+                        </div>
+                        <div className="bg-blue-500/10 rounded-lg p-3 border border-blue-500/30">
+                          <div className="text-xs text-blue-300 mb-1">
+                            Duration
+                          </div>
+                          <div className="text-white font-semibold">
+                            {formatDuration(result.response.duration)}
+                          </div>
+                        </div>
+                        <div className="bg-purple-500/10 rounded-lg p-3 border border-purple-500/30">
+                          <div className="text-xs text-purple-300 mb-1">
+                            Started
+                          </div>
+                          <div className="text-white font-semibold text-xs">
+                            {formatTimestamp(
+                              result.response.request_start_timestamp
+                            )}
+                          </div>
+                        </div>
+                        <div className="bg-orange-500/10 rounded-lg p-3 border border-orange-500/30">
+                          <div className="text-xs text-orange-300 mb-1">
+                            Completed
+                          </div>
+                          <div className="text-white font-semibold text-xs">
+                            {formatTimestamp(
+                              result.response.request_stop_timestamp
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Request Details */}
+                      <div className="bg-black/40 rounded-lg p-3 sm:p-4 border border-white/10">
+                        <h5 className="text-white font-medium mb-2 flex items-center gap-2">
+                          <Globe className="w-4 h-4" />
+                          Request Details
+                        </h5>
+                        <div className="space-y-2 text-xs sm:text-sm">
+                          <div>
+                            <span className="text-blue-300">URL:</span>{" "}
+                            <span className="text-white font-mono">
+                              {result.request.full_url}
+                            </span>
+                          </div>
+                          {Object.keys(result.request.headers).length > 0 && (
+                            <div>
+                              <span className="text-blue-300">Headers:</span>{" "}
+                              <span className="text-white font-mono">
+                                {JSON.stringify(result.request.headers)}
+                              </span>
+                            </div>
+                          )}
+                          {Object.keys(result.request.query).length > 0 && (
+                            <div>
+                              <span className="text-blue-300">Query:</span>{" "}
+                              <span className="text-white font-mono">
+                                {JSON.stringify(result.request.query)}
+                              </span>
+                            </div>
+                          )}
+                          {Object.keys(result.request.body).length > 0 && (
+                            <div>
+                              <span className="text-blue-300">Body:</span>{" "}
+                              <span className="text-white font-mono">
+                                {JSON.stringify(result.request.body)}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Response Data */}
+                      <div className="bg-black/40 rounded-lg p-3 sm:p-4 border border-white/10">
+                        <div className="flex items-center justify-between mb-2">
+                          <h5 className="text-white font-medium flex items-center gap-2">
+                            <FileText className="w-4 h-4" />
+                            Response Data
+                          </h5>
+                          <div className="flex gap-2">
+                            <button
+                              onClick={copyResponseData}
+                              className="p-1 text-blue-300 hover:text-white hover:bg-blue-500/20 rounded transition-all duration-300"
+                              title="Copy response data"
+                            >
+                              <Copy size={14} />
+                            </button>
+                            <button
+                              onClick={copyResultAsJson}
+                              className="p-1 text-blue-300 hover:text-white hover:bg-blue-500/20 rounded transition-all duration-300"
+                              title="Copy full result"
+                            >
+                              <Download size={14} />
+                            </button>
+                          </div>
+                        </div>
+                        <div className="code-block text-xs sm:text-sm max-h-64 overflow-y-auto">
+                          {JSON.stringify(
+                            result.response.response_data,
+                            null,
+                            2
+                          )}
+                        </div>
                       </div>
                     </div>
                   )}
-              </div>
+
+                  {error && (
+                    <div className="bg-red-500/10 rounded-lg p-3 sm:p-4 border border-red-500/30">
+                      <h5 className="text-red-300 font-medium mb-2 flex items-center gap-2">
+                        <AlertTriangle className="w-4 h-4" />
+                        Error Details
+                      </h5>
+                      <div className="code-block text-xs sm:text-sm text-red-200">
+                        {error}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
-          </div>
+          )}
 
-          {/* Response Details */}
-          <div
-            id="response-details-section"
-            className="glass-dark rounded-xl sm:rounded-2xl p-3 sm:p-6 lg:p-8 border border-white/10"
-          >
-            <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 mb-4 sm:mb-6 lg:mb-8">
-              <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-primary rounded-xl flex items-center justify-center shadow-lg">
-                <ArrowRight className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
-              </div>
-              <div>
-                <h3 className="text-lg sm:text-xl lg:text-2xl font-bold text-white">
-                  Response Details
-                </h3>
-                <p className="text-blue-200 text-xs sm:text-sm lg:text-base">
-                  Response information and data
-                </p>
-              </div>
-            </div>
-
-            <div className="grid lg:grid-cols-2 gap-4 sm:gap-6 lg:gap-8 mb-4 sm:mb-6 lg:mb-8">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-                <div className="bg-black/30 rounded-xl p-3 sm:p-4 border border-white/10">
-                  <h4 className="text-xs sm:text-sm font-semibold text-blue-200 mb-2 sm:mb-3 flex items-center gap-2">
-                    <CheckCircle className="w-3 h-3 sm:w-4 sm:h-4" />
-                    Status Code
-                  </h4>
-                  <div
-                    className={`inline-block px-2 sm:px-3 py-1 rounded-lg text-xs sm:text-sm font-bold ${
-                      result.response.http_status >= 200 &&
-                      result.response.http_status < 300
-                        ? "bg-green-500/20 text-green-300 border border-green-500/30"
-                        : "bg-red-500/20 text-red-300 border border-red-500/30"
-                    }`}
-                  >
-                    {result.response.http_status}
-                  </div>
-                </div>
-
-                <div className="bg-black/30 rounded-xl p-3 sm:p-4 border border-white/10">
-                  <h4 className="text-xs sm:text-sm font-semibold text-blue-200 mb-2 sm:mb-3 flex items-center gap-2">
-                    <Clock className="w-3 h-3 sm:w-4 sm:h-4" />
-                    Duration
-                  </h4>
-                  <div className="text-white font-mono text-xs sm:text-sm">
-                    {formatDuration(result.response.duration)}
-                  </div>
-                </div>
-
-                <div className="bg-black/30 rounded-xl p-3 sm:p-4 border border-white/10">
-                  <h4 className="text-xs sm:text-sm font-semibold text-blue-200 mb-2 sm:mb-3 flex items-center gap-2">
-                    <Clock className="w-3 h-3 sm:w-4 sm:h-4" />
-                    Start Time
-                  </h4>
-                  <div className="text-white text-xs sm:text-sm">
-                    {formatTimestamp(result.response.request_start_timestamp)}
-                  </div>
-                </div>
-
-                <div className="bg-black/30 rounded-xl p-3 sm:p-4 border border-white/10">
-                  <h4 className="text-xs sm:text-sm font-semibold text-blue-200 mb-2 sm:mb-3 flex items-center gap-2">
-                    <Clock className="w-3 h-3 sm:w-4 sm:h-4" />
-                    End Time
-                  </h4>
-                  <div className="text-white text-xs sm:text-sm">
-                    {formatTimestamp(result.response.request_stop_timestamp)}
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div>
-              <div className="flex items-center justify-between mb-3 sm:mb-4">
-                <h4 className="text-xs sm:text-sm font-semibold text-blue-200 flex items-center gap-2">
-                  <FileText className="w-3 h-3 sm:w-4 sm:h-4" />
-                  Response Data
+          {/* Vault Tab */}
+          {activeTab === "vault" && (
+            <div className="space-y-4 sm:space-y-6">
+              {/* Add New Vault Item */}
+              <div className="bg-black/30 rounded-xl p-3 sm:p-6 border border-white/10">
+                <h4 className="text-sm sm:text-base font-semibold text-white mb-3 sm:mb-4 flex items-center gap-2">
+                  <Plus className="w-4 h-4" />
+                  Add New Vault Item
                 </h4>
-                <button
-                  onClick={copyResponseData}
-                  className="p-2 sm:p-3 text-blue-300 hover:text-white hover:bg-white/10 rounded-xl transition-all duration-300"
-                  title="Copy response data"
-                  aria-label="Copy response data"
-                >
-                  <Copy size={16} />
-                </button>
-              </div>
-              <div
-                className="code-block text-xs sm:text-sm"
-                style={{ maxHeight: config.maxResponseHeight }}
-              >
-                {JSON.stringify(result.response.response_data, null, 2)}
-              </div>
-            </div>
+                <div className="space-y-3 sm:space-y-4">
+                  <input
+                    type="text"
+                    placeholder="Name (e.g., User Login Request)"
+                    value={newVaultItem.name}
+                    onChange={(e) =>
+                      setNewVaultItem((prev) => ({
+                        ...prev,
+                        name: e.target.value,
+                      }))
+                    }
+                    className="bg-black/40 border border-white/20 rounded-lg text-white placeholder-blue-300 text-xs sm:text-sm p-2 sm:p-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent w-full"
+                  />
+                  <textarea
+                    placeholder="Reqline Syntax"
+                    value={newVaultItem.value}
+                    onChange={(e) =>
+                      setNewVaultItem((prev) => ({
+                        ...prev,
+                        value: e.target.value,
+                      }))
+                    }
+                    className="bg-black/40 border border-white/20 rounded-lg text-white placeholder-blue-300 text-xs sm:text-sm p-2 sm:p-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none h-20 font-mono w-full"
+                  />
 
-            {result.response.cookies_received &&
-              result.response.cookies_received.length > 0 && (
-                <div>
-                  <h4 className="text-xs sm:text-sm font-semibold text-blue-200 mb-3 sm:mb-4 flex items-center gap-2">
-                    <Settings className="w-3 h-3 sm:w-4 sm:h-4" />
-                    Cookies Received
-                  </h4>
-                  <div className="code-block text-xs sm:text-sm">
-                    {result.response.cookies_received.map((cookie, index) => (
-                      <div key={index} className="text-green-300">
-                        {cookie}
+                  <button
+                    onClick={addVaultItem}
+                    className="btn-primary flex items-center gap-2 text-xs sm:text-sm px-4 py-2"
+                  >
+                    <Save size={16} />
+                    Add to Vault
+                  </button>
+                </div>
+              </div>
+
+              {/* Vault Items */}
+              <div className="bg-black/30 rounded-xl p-3 sm:p-6 border border-white/10">
+                <h4 className="text-sm sm:text-base font-semibold text-white mb-3 sm:mb-4 flex items-center gap-2">
+                  <Key className="w-4 h-4" />
+                  Saved Vault Items
+                </h4>
+                {vaultItems.length === 0 ? (
+                  <div className="text-center py-8 text-blue-200 text-sm">
+                    <Key className="w-12 h-12 mx-auto mb-4 text-blue-300" />
+                    <p>No vault items saved yet. Add your first item above.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {vaultItems.map((item) => (
+                      <div
+                        key={item.id}
+                        className="bg-black/40 rounded-lg p-3 border border-white/10 hover:bg-black/60 transition-all duration-300"
+                      >
+                        <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+                          <div className="flex-1 min-w-0">
+                            <h5 className="font-semibold text-white text-sm mb-1 truncate">
+                              {item.name}
+                            </h5>
+
+                            <div className="code-block text-xs max-h-16 overflow-y-auto break-words font-mono">
+                              {item.value}
+                            </div>
+                            <div className="text-xs text-gray-400 mt-2">
+                              {new Date(item.createdAt).toLocaleDateString()}
+                            </div>
+                          </div>
+                          <div className="flex gap-2 flex-shrink-0 justify-center sm:justify-end">
+                            <button
+                              onClick={() => useVaultItem(item)}
+                              className="p-2 text-blue-300 hover:text-white hover:bg-blue-500/20 rounded-lg transition-all duration-300"
+                              title="Use this item"
+                            >
+                              <Send size={16} />
+                            </button>
+                            <button
+                              onClick={() => copyVaultItem(item)}
+                              className="p-2 text-blue-300 hover:text-white hover:bg-blue-500/20 rounded-lg transition-all duration-300"
+                              title="Copy to clipboard"
+                            >
+                              <Copy size={16} />
+                            </button>
+                            <button
+                              onClick={() => removeVaultItem(item.id)}
+                              className="p-2 text-red-300 hover:text-white hover:bg-red-500/20 rounded-lg transition-all duration-300"
+                              title="Remove item"
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          </div>
+                        </div>
                       </div>
                     ))}
                   </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Examples Tab */}
+          {activeTab === "examples" && (
+            <div className="bg-black/30 rounded-xl p-3 sm:p-6 border border-white/10">
+              <h4 className="text-sm sm:text-base font-semibold text-white mb-3 sm:mb-4 flex items-center gap-2">
+                <Info className="w-4 h-4" />
+                Example Requests
+              </h4>
+              <p className="text-blue-200 text-sm mb-4">
+                Common use cases and syntax examples. Click any example to load
+                it into the request form.
+              </p>
+              <div className="grid gap-3 sm:gap-4">
+                {examples.map((example, index) => (
+                  <div
+                    key={index}
+                    className="bg-black/40 rounded-xl p-3 sm:p-4 border border-white/10 hover:bg-black/60 transition-all duration-300 group cursor-pointer"
+                    onClick={() => {
+                      setReqline(example.reqline);
+                      setActiveTab("request");
+                      setToast({
+                        message: `Loaded: ${example.name}`,
+                        type: "success",
+                      });
+                    }}
+                  >
+                    <div className="flex items-start gap-3">
+                      <div
+                        className={`w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-r ${example.color} rounded-lg flex items-center justify-center flex-shrink-0`}
+                      >
+                        {example.icon}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <h5 className="font-semibold text-white text-sm sm:text-base mb-1">
+                          {example.name}
+                        </h5>
+                        <p className="text-blue-200 text-xs sm:text-sm mb-2">
+                          {example.description}
+                        </p>
+                        <div className="code-block text-xs max-h-16 overflow-y-auto break-words font-mono">
+                          {example.reqline}
+                        </div>
+                      </div>
+                      <div className="flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                        <ArrowRight className="w-5 h-5 text-blue-300" />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* History Tab */}
+          {activeTab === "history" && (
+            <div className="bg-black/30 rounded-xl p-3 sm:p-6 border border-white/10">
+              <h4 className="text-sm sm:text-base font-semibold text-white mb-3 sm:mb-4 flex items-center gap-2">
+                <History className="w-4 h-4" />
+                Request History
+              </h4>
+              {requestHistory.length === 0 ? (
+                <div className="text-center py-8 text-blue-200 text-sm">
+                  <History className="w-12 h-12 mx-auto mb-4 text-blue-300" />
+                  <p>
+                    No request history yet. Execute your first request to see it
+                    here.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {requestHistory.map((item) => (
+                    <div
+                      key={item.id}
+                      className="bg-black/40 rounded-lg p-3 border border-white/10 hover:bg-black/60 transition-all duration-300"
+                    >
+                      <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1">
+                            <h5 className="font-semibold text-white text-sm truncate">
+                              {item.reqline.substring(0, 50)}...
+                            </h5>
+                            {item.result ? (
+                              <span className="text-xs text-green-300 bg-green-500/20 px-2 py-1 rounded-full">
+                                {item.result.response.http_status}
+                              </span>
+                            ) : (
+                              <span className="text-xs text-red-300 bg-red-500/20 px-2 py-1 rounded-full">
+                                Error
+                              </span>
+                            )}
+                          </div>
+                          <div className="code-block text-xs max-h-16 overflow-y-auto break-words font-mono">
+                            {item.reqline}
+                          </div>
+                          <div className="text-xs text-gray-400 mt-2">
+                            {new Date(item.timestamp).toLocaleString()}
+                          </div>
+                        </div>
+                        <div className="flex gap-2 flex-shrink-0 justify-center sm:justify-end">
+                          <button
+                            onClick={() => useHistoryItem(item)}
+                            className="p-2 text-blue-300 hover:text-white hover:bg-blue-500/20 rounded-lg transition-all duration-300"
+                            title="Use this request"
+                          >
+                            <Send size={16} />
+                          </button>
+                          <button
+                            onClick={() => removeHistoryItem(item.id)}
+                            className="p-2 text-red-300 hover:text-white hover:bg-red-500/20 rounded-lg transition-all duration-300"
+                            title="Remove from history"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               )}
-          </div>
+            </div>
+          )}
         </div>
-      )}
-
-
+      </div>
     </div>
   );
 };
