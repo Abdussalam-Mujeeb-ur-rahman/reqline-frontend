@@ -170,13 +170,12 @@ const ReqlineParser = () => {
       note: "Click the FORMDATA keyword button to open file picker and add files",
     },
     {
-      name: "Proxy to Localhost",
-      description: "Test local development API (use proxy checkbox)",
-      reqline:
-        'HTTP GET | URL https://api.example.com/users | HEADERS {"Authorization": "Bearer local-token"}',
+      name: "Localhost API Testing",
+      description: "Test your local development server",
+      reqline: "HTTP GET | URL http://localhost:3000/api/users",
       color: "from-cyan-500 to-cyan-600",
       icon: <Globe className="w-4 h-4 sm:w-5 sm:h-5 text-white" />,
-      note: "Enable 'Use Proxy' checkbox and set target to your localhost port",
+      note: "Auto-detects localhost! Configure CORS on your local server to allow this domain.",
     },
   ];
 
@@ -404,6 +403,23 @@ const ReqlineParser = () => {
       return { data: formattedResponse };
     } catch (error: any) {
       console.error("Direct localhost request failed:", error);
+      
+      // Check for CORS errors
+      if (error.message.includes('CORS') || error.message.includes('Access-Control-Allow-Origin')) {
+        throw new Error(
+          `CORS Error: Your local server at ${proxyTarget} needs to allow requests from this domain. ` +
+          `Add CORS configuration to allow origin: ${window.location.origin}. ` +
+          `See documentation for setup instructions.`
+        );
+      }
+      
+      // Check for network errors
+      if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
+        throw new Error(
+          `Connection failed to ${proxyTarget}. Make sure your local server is running and accessible.`
+        );
+      }
+      
       throw new Error(`Connection failed to ${proxyTarget}: ${error.message}`);
     }
   };
