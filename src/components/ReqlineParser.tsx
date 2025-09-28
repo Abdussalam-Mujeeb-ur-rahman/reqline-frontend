@@ -20,7 +20,7 @@ import {
   RotateCcw,
   Download,
   ArrowRight,
-  Zap
+  Zap,
 } from "lucide-react";
 import axios from "axios";
 import LoadingSpinner from "./LoadingSpinner";
@@ -691,7 +691,7 @@ const ReqlineParser = () => {
         {/* Header */}
         <div className="mb-8 sm:mb-12">
           <div className="flex items-center gap-4 mb-6">
-          <div
+            <div
               className={`w-12 h-12 sm:w-16 sm:h-16 rounded-2xl flex items-center justify-center shadow-xl ${
                 isDark ? "bg-slate-700" : "bg-slate-800"
               }`}
@@ -712,7 +712,7 @@ const ReqlineParser = () => {
 
           {/* Navigation Tabs */}
           <div
-            className={`flex rounded-2xl p-1 border transition-colors duration-300 ${
+            className={`flex rounded-2xl p-1 border transition-colors duration-300 overflow-x-auto ${
               isDark
                 ? "bg-slate-800 border-slate-700"
                 : "bg-slate-100 border-slate-200"
@@ -720,7 +720,7 @@ const ReqlineParser = () => {
           >
             <button
               onClick={() => setActiveTab("request")}
-              className={`flex items-center gap-2 px-4 py-3 text-sm font-medium transition-all duration-300 rounded-xl flex-1 sm:flex-none sm:px-6 ${
+              className={`flex items-center gap-1 sm:gap-2 px-2 sm:px-4 lg:px-6 py-2 sm:py-3 text-xs sm:text-sm font-medium transition-all duration-300 rounded-xl flex-1 sm:flex-none whitespace-nowrap ${
                 activeTab === "request"
                   ? isDark
                     ? "text-slate-100 bg-slate-700 border border-slate-600 shadow-lg"
@@ -730,12 +730,12 @@ const ReqlineParser = () => {
                   : "text-slate-600 hover:text-slate-800 hover:bg-slate-200"
               }`}
             >
-              <Send size={16} />
+              <Send size={14} className="sm:w-4 sm:h-4" />
               <span>Request</span>
             </button>
             <button
               onClick={() => setActiveTab("vault")}
-              className={`flex items-center gap-2 px-4 py-3 text-sm font-medium transition-all duration-300 rounded-xl flex-1 sm:flex-none sm:px-6 ${
+              className={`flex items-center gap-1 sm:gap-2 px-2 sm:px-4 lg:px-6 py-2 sm:py-3 text-xs sm:text-sm font-medium transition-all duration-300 rounded-xl flex-1 sm:flex-none whitespace-nowrap ${
                 activeTab === "vault"
                   ? isDark
                     ? "text-slate-100 bg-slate-700 border border-slate-600 shadow-lg"
@@ -745,12 +745,12 @@ const ReqlineParser = () => {
                   : "text-slate-600 hover:text-slate-800 hover:bg-slate-200"
               }`}
             >
-              <Key size={16} />
+              <Key size={14} className="sm:w-4 sm:h-4" />
               <span>Vault</span>
             </button>
             <button
               onClick={() => setActiveTab("examples")}
-              className={`flex items-center gap-2 px-4 py-3 text-sm font-medium transition-all duration-300 rounded-xl flex-1 sm:flex-none sm:px-6 ${
+              className={`flex items-center gap-1 sm:gap-2 px-2 sm:px-4 lg:px-6 py-2 sm:py-3 text-xs sm:text-sm font-medium transition-all duration-300 rounded-xl flex-1 sm:flex-none whitespace-nowrap ${
                 activeTab === "examples"
                   ? isDark
                     ? "text-slate-100 bg-slate-700 border border-slate-600 shadow-lg"
@@ -760,12 +760,12 @@ const ReqlineParser = () => {
                   : "text-slate-600 hover:text-slate-800 hover:bg-slate-200"
               }`}
             >
-              <Info size={16} />
+              <Info size={14} className="sm:w-4 sm:h-4" />
               <span>Examples</span>
             </button>
             <button
               onClick={() => setActiveTab("history")}
-              className={`flex items-center gap-2 px-4 py-3 text-sm font-medium transition-all duration-300 rounded-xl flex-1 sm:flex-none sm:px-6 ${
+              className={`flex items-center gap-1 sm:gap-2 px-2 sm:px-4 lg:px-6 py-2 sm:py-3 text-xs sm:text-sm font-medium transition-all duration-300 rounded-xl flex-1 sm:flex-none whitespace-nowrap ${
                 activeTab === "history"
                   ? isDark
                     ? "text-slate-100 bg-slate-700 border border-slate-600 shadow-lg"
@@ -775,7 +775,7 @@ const ReqlineParser = () => {
                   : "text-slate-600 hover:text-slate-800 hover:bg-slate-200"
               }`}
             >
-              <History size={16} />
+              <History size={14} className="sm:w-4 sm:h-4" />
               <span>History</span>
             </button>
           </div>
@@ -817,12 +817,12 @@ const ReqlineParser = () => {
                   {/* Keyword Suggestions */}
                   <div>
                     <h3
-                      className={`${theme.text.primary} font-semibold mb-3 flex items-center gap-2`}
+                      className={`${theme.text.primary} font-semibold mb-2 sm:mb-3 flex items-center gap-1 sm:gap-2 text-sm sm:text-base`}
                     >
-                      <Code className="w-4 h-4" />
+                      <Code className="w-3 h-3 sm:w-4 sm:h-4" />
                       Quick Actions
                     </h3>
-                    <div className="flex flex-wrap gap-2">
+                    <div className="flex flex-wrap gap-1 sm:gap-2">
                       {keywords.map((keyword, index) => (
                         <button
                           key={index}
@@ -833,7 +833,7 @@ const ReqlineParser = () => {
                               (keyword as any).isFileUpload
                             )
                           }
-                          className={`px-4 py-2 rounded-xl text-sm font-medium transition-all duration-300 hover:scale-105 ${
+                          className={`px-2 sm:px-4 py-1 sm:py-2 rounded-lg sm:rounded-xl text-xs sm:text-sm font-medium transition-all duration-300 hover:scale-105 ${
                             isKeywordPresent(keyword.text)
                               ? theme.button.keywordActive
                               : theme.button.keywordInactive
@@ -849,37 +849,45 @@ const ReqlineParser = () => {
                   {/* File Upload Section */}
                   {(selectedFiles.length > 0 ||
                     Object.keys(formDataFields).length > 0) && (
-                    <div className="bg-gradient-to-r from-blue-500/10 to-purple-500/10 rounded-2xl p-6 border border-blue-500/20">
-                      <h3 className="text-white font-semibold mb-4 flex items-center gap-2">
-                        <Upload className="w-5 h-5" />
+                    <div
+                      className={`${theme.bg.card} rounded-2xl p-4 sm:p-6 ${theme.border.primary} shadow-lg`}
+                    >
+                      <h3
+                        className={`${theme.text.primary} font-semibold mb-3 sm:mb-4 flex items-center gap-1 sm:gap-2 text-sm sm:text-base`}
+                      >
+                        <Upload className="w-4 h-4 sm:w-5 sm:h-5" />
                         FormData Configuration
                       </h3>
 
                       {/* File Selection */}
-                      <div className="mb-6">
-                        <label className="block text-blue-300 font-medium mb-3">
+                      <div className="mb-4 sm:mb-6">
+                        <label
+                          className={`block ${theme.text.accent} font-medium mb-2 sm:mb-3 text-sm sm:text-base`}
+                        >
                           Files to Upload
                         </label>
                         <input
                           type="file"
                           multiple
                           onChange={handleFileSelect}
-                          className="w-full bg-black/40 border border-white/20 rounded-xl text-white text-sm p-4 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          className={`w-full ${theme.bg.input} ${theme.border.primary} rounded-lg sm:rounded-xl ${theme.text.primary} text-xs sm:text-sm p-3 sm:p-4 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent`}
                         />
                         {selectedFiles.length > 0 && (
-                          <div className="mt-4 space-y-2">
+                          <div className="mt-3 sm:mt-4 space-y-2">
                             {selectedFiles.map((file, index) => (
                               <div
                                 key={index}
-                                className="flex items-center justify-between bg-black/40 rounded-xl p-3"
+                                className={`flex items-center justify-between ${theme.bg.code} rounded-lg sm:rounded-xl p-2 sm:p-3`}
                               >
-                                <span className="text-white text-sm truncate">
+                                <span
+                                  className={`${theme.text.primary} text-xs sm:text-sm truncate`}
+                                >
                                   {file.name}
                                 </span>
                                 <button
                                   type="button"
                                   onClick={() => removeFile(index)}
-                                  className={`${theme.text.muted} hover:${theme.text.secondary} text-sm px-3 py-1 rounded-lg hover:${theme.bg.secondary}`}
+                                  className={`${theme.text.muted} hover:${theme.text.secondary} text-xs sm:text-sm px-2 sm:px-3 py-1 rounded-lg hover:${theme.bg.secondary}`}
                                 >
                                   Remove
                                 </button>
@@ -890,12 +898,17 @@ const ReqlineParser = () => {
                       </div>
 
                       {/* Form Data Fields */}
-                      <div className="mb-6">
-                        <label className="block text-blue-300 font-medium mb-3">
+                      <div className="mb-4 sm:mb-6">
+                        <label
+                          className={`block ${theme.text.accent} font-medium mb-2 sm:mb-3 text-sm sm:text-base`}
+                        >
                           Additional Form Fields
                         </label>
                         {Object.entries(formDataFields).map(([key, value]) => (
-                          <div key={key} className="flex gap-3 mb-3">
+                          <div
+                            key={key}
+                            className="flex flex-col sm:flex-row gap-2 sm:gap-3 mb-2 sm:mb-3"
+                          >
                             <input
                               type="text"
                               placeholder="Field name"
@@ -907,7 +920,7 @@ const ReqlineParser = () => {
                                 newFields[newKey] = value;
                                 setFormDataFields(newFields);
                               }}
-                              className="flex-1 bg-black/40 border border-white/20 rounded-xl text-white placeholder-blue-300 text-sm p-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              className={`flex-1 ${theme.bg.input} ${theme.border.primary} rounded-lg sm:rounded-xl ${theme.text.primary} ${theme.text.placeholder} text-xs sm:text-sm p-2 sm:p-3 focus:outline-none focus:ring-2 focus:ring-emerald-500`}
                             />
                             <input
                               type="text"
@@ -916,12 +929,12 @@ const ReqlineParser = () => {
                               onChange={(e) =>
                                 updateFormDataField(key, e.target.value)
                               }
-                              className="flex-1 bg-black/40 border border-white/20 rounded-xl text-white placeholder-blue-300 text-sm p-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              className={`flex-1 ${theme.bg.input} ${theme.border.primary} rounded-lg sm:rounded-xl ${theme.text.primary} ${theme.text.placeholder} text-xs sm:text-sm p-2 sm:p-3 focus:outline-none focus:ring-2 focus:ring-emerald-500`}
                             />
                             <button
                               type="button"
                               onClick={() => removeFormDataField(key)}
-                              className={`${theme.text.muted} hover:${theme.text.secondary} text-sm px-4 py-3 rounded-xl hover:${theme.bg.secondary}`}
+                              className={`${theme.text.muted} hover:${theme.text.secondary} text-xs sm:text-sm px-3 sm:px-4 py-2 sm:py-3 rounded-lg sm:rounded-xl hover:${theme.bg.secondary} whitespace-nowrap`}
                             >
                               Remove
                             </button>
@@ -932,7 +945,7 @@ const ReqlineParser = () => {
                           onClick={() =>
                             updateFormDataField(`field_${Date.now()}`, "")
                           }
-                          className="text-blue-400 hover:text-blue-300 text-sm"
+                          className={`${theme.text.accent} hover:${theme.text.primary} text-xs sm:text-sm`}
                         >
                           + Add Field
                         </button>
@@ -959,9 +972,9 @@ const ReqlineParser = () => {
                             // Error already handled in generateFormDataReqline
                           }
                         }}
-                        className="btn-primary flex items-center gap-2 text-sm px-6 py-3 rounded-xl"
+                        className={`${theme.button.primary} flex items-center gap-1 sm:gap-2 text-xs sm:text-sm px-4 sm:px-6 py-2 sm:py-3 rounded-lg sm:rounded-xl w-full sm:w-auto`}
                       >
-                        <Upload className="w-4 h-4" />
+                        <Upload className="w-3 h-3 sm:w-4 sm:h-4" />
                         Generate FormData
                       </button>
                     </div>

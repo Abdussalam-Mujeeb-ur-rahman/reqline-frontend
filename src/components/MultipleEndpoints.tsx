@@ -1188,156 +1188,173 @@ const MultipleEndpoints = () => {
                   </h4>
                   <div className="grid gap-3 sm:gap-4">
                     {/* Keyword Suggestions */}
-                    <div className="flex flex-wrap gap-2 sm:gap-3">
-                      {keywords
-                        .filter((keyword) => !(keyword as any).isFileUpload)
-                        .map((keyword, index) => (
-                          <button
-                            key={index}
-                            type="button"
-                            onClick={() =>
-                              handleKeywordClick(keyword.template, false)
-                            }
-                            className={`px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-mono font-semibold transition-all duration-300 hover:scale-105 ${
-                              keyword.text === "URL" && currentSuite?.baseUrl
-                                ? "bg-blue-100 text-blue-800 border border-blue-300 shadow-lg"
-                                : isKeywordPresent(keyword.text)
-                                ? "bg-green-100 text-green-800 border border-green-300 shadow-lg"
-                                : "bg-gray-100 text-gray-700 border border-gray-300 hover:bg-gray-200 hover:text-gray-900"
-                            }`}
-                            title={
-                              keyword.text === "URL" && currentSuite?.baseUrl
-                                ? `Insert URL ${currentSuite.baseUrl}`
-                                : `Insert ${keyword.template}`
-                            }
-                            aria-label={
-                              keyword.text === "URL" && currentSuite?.baseUrl
-                                ? `Insert URL ${currentSuite.baseUrl}`
-                                : `Insert ${keyword.template}`
-                            }
-                          >
-                            {keyword.text}
-                          </button>
-                        ))}
+                    <div className="flex flex-wrap gap-1 sm:gap-2">
+                      {keywords.map((keyword, index) => (
+                        <button
+                          key={index}
+                          type="button"
+                          onClick={() =>
+                            handleKeywordClick(
+                              keyword.template,
+                              (keyword as any).isFileUpload
+                            )
+                          }
+                          className={`px-2 sm:px-4 py-1 sm:py-2 rounded-lg sm:rounded-xl text-xs sm:text-sm font-medium transition-all duration-300 hover:scale-105 ${
+                            keyword.text === "URL" && currentSuite?.baseUrl
+                              ? theme.button.keywordActive
+                              : isKeywordPresent(keyword.text)
+                              ? theme.button.keywordActive
+                              : theme.button.keywordInactive
+                          }`}
+                          title={
+                            keyword.text === "URL" && currentSuite?.baseUrl
+                              ? `Insert URL ${currentSuite.baseUrl}`
+                              : `Insert ${keyword.template}`
+                          }
+                          aria-label={
+                            keyword.text === "URL" && currentSuite?.baseUrl
+                              ? `Insert URL ${currentSuite.baseUrl}`
+                              : `Insert ${keyword.template}`
+                          }
+                        >
+                          {keyword.text}
+                        </button>
+                      ))}
                     </div>
 
-                    {/* File Upload Section - Temporarily Disabled */}
-                    {false &&
-                      (selectedFiles.length > 0 ||
-                        Object.keys(formDataFields).length > 0) && (
-                        <div className="bg-black/20 rounded-lg p-3 sm:p-4 border border-white/10">
-                          <h5 className="text-sm font-semibold text-white mb-3 flex items-center gap-2">
-                            <Upload className="w-4 h-4" />
-                            FormData Configuration
-                          </h5>
+                    {/* File Upload Section */}
+                    {(selectedFiles.length > 0 ||
+                      Object.keys(formDataFields).length > 0) && (
+                      <div
+                        className={`${theme.bg.card} rounded-2xl p-4 sm:p-6 ${theme.border.primary} shadow-lg`}
+                      >
+                        <h5
+                          className={`${theme.text.primary} font-semibold mb-3 sm:mb-4 flex items-center gap-1 sm:gap-2 text-sm sm:text-base`}
+                        >
+                          <Upload className="w-4 h-4 sm:w-5 sm:h-5" />
+                          FormData Configuration
+                        </h5>
 
-                          {/* File Selection */}
-                          <div className="mb-4">
-                            <label className="block text-xs text-blue-300 mb-2">
-                              Files to Upload:
-                            </label>
-                            <input
-                              type="file"
-                              multiple
-                              onChange={handleFileSelect}
-                              className="w-full bg-black/40 border border-white/20 rounded-lg text-white text-xs sm:text-sm p-2 sm:p-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                            />
-                            {selectedFiles.length > 0 && (
-                              <div className="mt-2 space-y-1">
-                                {selectedFiles.map((file, index) => (
-                                  <div
-                                    key={index}
-                                    className="flex items-center justify-between bg-black/40 rounded p-2"
+                        {/* File Selection */}
+                        <div className="mb-4 sm:mb-6">
+                          <label
+                            className={`block ${theme.text.accent} font-medium mb-2 sm:mb-3 text-sm sm:text-base`}
+                          >
+                            Files to Upload
+                          </label>
+                          <input
+                            type="file"
+                            multiple
+                            onChange={handleFileSelect}
+                            className={`w-full ${theme.bg.input} ${theme.border.primary} rounded-lg sm:rounded-xl ${theme.text.primary} text-xs sm:text-sm p-3 sm:p-4 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent`}
+                          />
+                          {selectedFiles.length > 0 && (
+                            <div className="mt-3 sm:mt-4 space-y-2">
+                              {selectedFiles.map((file, index) => (
+                                <div
+                                  key={index}
+                                  className={`flex items-center justify-between ${theme.bg.code} rounded-lg sm:rounded-xl p-2 sm:p-3`}
+                                >
+                                  <span
+                                    className={`${theme.text.primary} text-xs sm:text-sm truncate`}
                                   >
-                                    <span className="text-xs text-white truncate">
-                                      {file.name}
-                                    </span>
-                                    <button
-                                      type="button"
-                                      onClick={() => removeFile(index)}
-                                      className="text-red-400 hover:text-red-300 text-xs"
-                                    >
-                                      Remove
-                                    </button>
-                                  </div>
-                                ))}
-                              </div>
-                            )}
-                          </div>
-
-                          {/* Form Data Fields */}
-                          <div className="mb-4">
-                            <label className="block text-xs text-blue-300 mb-2">
-                              Additional Form Fields:
-                            </label>
-                            {Object.entries(formDataFields).map(
-                              ([key, value]) => (
-                                <div key={key} className="flex gap-2 mb-2">
-                                  <input
-                                    type="text"
-                                    placeholder="Field name"
-                                    value={key}
-                                    onChange={(e) => {
-                                      const newKey = e.target.value;
-                                      const newFields = { ...formDataFields };
-                                      delete newFields[key];
-                                      newFields[newKey] = value;
-                                      setFormDataFields(newFields);
-                                    }}
-                                    className="flex-1 bg-black/40 border border-white/20 rounded text-white placeholder-blue-300 text-xs p-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                  />
-                                  <input
-                                    type="text"
-                                    placeholder="Field value"
-                                    value={value}
-                                    onChange={(e) =>
-                                      updateFormDataField(key, e.target.value)
-                                    }
-                                    className="flex-1 bg-black/40 border border-white/20 rounded text-white placeholder-blue-300 text-xs p-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                  />
+                                    {file.name}
+                                  </span>
                                   <button
                                     type="button"
-                                    onClick={() => removeFormDataField(key)}
-                                    className="text-red-400 hover:text-red-300 text-xs px-2"
+                                    onClick={() => removeFile(index)}
+                                    className={`${theme.text.muted} hover:${theme.text.secondary} text-xs sm:text-sm px-2 sm:px-3 py-1 rounded-lg hover:${theme.bg.secondary}`}
                                   >
                                     Remove
                                   </button>
                                 </div>
-                              )
-                            )}
-                            <button
-                              type="button"
-                              onClick={() =>
-                                updateFormDataField(`field_${Date.now()}`, "")
-                              }
-                              className="text-blue-400 hover:text-blue-300 text-xs"
-                            >
-                              + Add Field
-                            </button>
-                          </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
 
-                          {/* Generate FormData Button */}
+                        {/* Form Data Fields */}
+                        <div className="mb-4 sm:mb-6">
+                          <label
+                            className={`block ${theme.text.accent} font-medium mb-2 sm:mb-3 text-sm sm:text-base`}
+                          >
+                            Additional Form Fields
+                          </label>
+                          {Object.entries(formDataFields).map(
+                            ([key, value]) => (
+                              <div
+                                key={key}
+                                className="flex flex-col sm:flex-row gap-2 sm:gap-3 mb-2 sm:mb-3"
+                              >
+                                <input
+                                  type="text"
+                                  placeholder="Field name"
+                                  value={key}
+                                  onChange={(e) => {
+                                    const newKey = e.target.value;
+                                    const newFields = { ...formDataFields };
+                                    delete newFields[key];
+                                    newFields[newKey] = value;
+                                    setFormDataFields(newFields);
+                                  }}
+                                  className={`flex-1 ${theme.bg.input} ${theme.border.primary} rounded-lg sm:rounded-xl ${theme.text.primary} ${theme.text.placeholder} text-xs sm:text-sm p-2 sm:p-3 focus:outline-none focus:ring-2 focus:ring-emerald-500`}
+                                />
+                                <input
+                                  type="text"
+                                  placeholder="Field value"
+                                  value={value}
+                                  onChange={(e) =>
+                                    updateFormDataField(key, e.target.value)
+                                  }
+                                  className={`flex-1 ${theme.bg.input} ${theme.border.primary} rounded-lg sm:rounded-xl ${theme.text.primary} ${theme.text.placeholder} text-xs sm:text-sm p-2 sm:p-3 focus:outline-none focus:ring-2 focus:ring-emerald-500`}
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => removeFormDataField(key)}
+                                  className={`${theme.text.muted} hover:${theme.text.secondary} text-xs sm:text-sm px-3 sm:px-4 py-2 sm:py-3 rounded-lg sm:rounded-xl hover:${theme.bg.secondary} whitespace-nowrap`}
+                                >
+                                  Remove
+                                </button>
+                              </div>
+                            )
+                          )}
                           <button
                             type="button"
-                            onClick={() => {
-                              const formDataReqline = generateFormDataReqline();
-                              const currentValue = newEndpoint.reqline;
-                              const insertText =
-                                currentValue.trim() !== ""
-                                  ? " | " + formDataReqline
-                                  : formDataReqline;
-                              setNewEndpoint((prev) => ({
-                                ...prev,
-                                reqline: currentValue + insertText,
-                              }));
-                            }}
-                            className="btn-primary text-xs px-3 py-2"
+                            onClick={() =>
+                              updateFormDataField(`field_${Date.now()}`, "")
+                            }
+                            className={`${theme.text.accent} hover:${theme.text.primary} text-xs sm:text-sm`}
                           >
-                            <Upload className="w-4 h-4" />
-                            Generate FormData
+                            + Add Field
                           </button>
                         </div>
-                      )}
+
+                        {/* Generate FormData Button */}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const formDataReqline = generateFormDataReqline();
+                            const currentValue = newEndpoint.reqline;
+                            const insertText =
+                              currentValue.trim() !== ""
+                                ? " | " + formDataReqline
+                                : formDataReqline;
+                            setNewEndpoint((prev) => ({
+                              ...prev,
+                              reqline: currentValue + insertText,
+                            }));
+                            setToast({
+                              message: "FormData generated successfully!",
+                              type: "success",
+                            });
+                          }}
+                          className={`${theme.button.primary} flex items-center gap-1 sm:gap-2 text-xs sm:text-sm px-4 sm:px-6 py-2 sm:py-3 rounded-lg sm:rounded-xl w-full sm:w-auto`}
+                        >
+                          <Upload className="w-3 h-3 sm:w-4 sm:h-4" />
+                          Generate FormData
+                        </button>
+                      </div>
+                    )}
 
                     <div className="grid grid-cols-1 gap-3 sm:gap-4">
                       <input
