@@ -3,38 +3,34 @@ import { useNavigate } from "react-router-dom";
 import {
   Send,
   Copy,
-  RotateCcw,
-  Info,
-  ArrowRight,
   CheckCircle,
-  Clock,
   Globe,
-  FileText,
-  Settings,
-  Zap,
   Code,
-  Sparkles,
-  ChevronDown,
-  ChevronUp,
-  Download,
   AlertTriangle,
-  Package,
   Plus,
   Trash2,
   Save,
   Key,
-  ArrowUp,
   Layers,
-  BookOpen,
   History,
+  Upload,
+  FileText,
+  ArrowUp,
+  Info,
+  RotateCcw,
+  Download,
+  ArrowRight,
+  Zap
 } from "lucide-react";
 import axios from "axios";
 import LoadingSpinner from "./LoadingSpinner";
 import Toast from "./Toast";
+import { useTheme } from "../contexts/ThemeContext";
+import { useThemeClasses } from "../hooks/useThemeClasses";
 import config from "../../config";
+import fileUploadService from "../services/fileUpload";
 import {
   validateReqlineLength,
-  sanitizeInput,
   sanitizeResponseData,
   createSafeErrorMessage,
   checkRateLimit,
@@ -77,9 +73,13 @@ interface RequestHistory {
   result: ApiResponse | null;
   error: string | null;
   timestamp: number;
+  useProxy?: boolean;
+  proxyTarget?: string;
 }
 
 const ReqlineParser = () => {
+  const { isDark } = useTheme();
+  const theme = useThemeClasses();
   const [reqline, setReqline] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [result, setResult] = useState<ApiResponse | null>(null);
@@ -98,8 +98,19 @@ const ReqlineParser = () => {
     message: string;
     type: "success" | "error";
   } | null>(null);
+  const [useProxy, setUseProxy] = useState(false);
+  const [proxyTarget, setProxyTarget] = useState("http://localhost:8080");
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [formDataFields, setFormDataFields] = useState<Record<string, string>>(
+    {}
+  );
 
   const navigate = useNavigate();
+
+  // Actively watch for URL changes in real-time
+  useEffect(() => {
+    checkAndEnableProxy(reqline);
+  }, [reqline]);
 
   // Keywords for Reqline syntax with smart templates
   const keywords = [
@@ -108,6 +119,11 @@ const ReqlineParser = () => {
     { text: "HEADERS", template: 'HEADERS {"Authorization": "Bearer token"}' },
     { text: "BODY", template: "BODY {}" },
     { text: "QUERY", template: 'QUERY {"query1": 1920933}' },
+    {
+      text: "FORMDATA",
+      template: "FORMDATA {}",
+      isFileUpload: true,
+    },
   ];
 
   // Examples for the Examples tab
@@ -143,6 +159,25 @@ const ReqlineParser = () => {
       color: "from-orange-500 to-orange-600",
       icon: <Key className="w-4 h-4 sm:w-5 sm:h-5 text-white" />,
     },
+    {
+      name: "FormData File Upload",
+      description:
+        "Upload file with form data (click FORMDATA button to use file picker)",
+      reqline:
+        'HTTP POST | URL https://api.example.com/upload | FORMDATA {"name": "John Doe"}',
+      color: "from-pink-500 to-pink-600",
+      icon: <Upload className="w-4 h-4 sm:w-5 sm:h-5 text-white" />,
+      note: "Click the FORMDATA keyword button to open file picker and add files",
+    },
+    {
+      name: "Proxy to Localhost",
+      description: "Test local development API (use proxy checkbox)",
+      reqline:
+        'HTTP GET | URL https://api.example.com/users | HEADERS {"Authorization": "Bearer local-token"}',
+      color: "from-cyan-500 to-cyan-600",
+      icon: <Globe className="w-4 h-4 sm:w-5 sm:h-5 text-white" />,
+      note: "Enable 'Use Proxy' checkbox and set target to your localhost port",
+    },
   ];
 
   // Check if a keyword is present in the current input
@@ -150,18 +185,104 @@ const ReqlineParser = () => {
     return reqline.toUpperCase().includes(keyword.toUpperCase());
   };
 
+  // Normalize delimiters: ensure single " | ", remove leading/trailing delimiters
+  const normalizeDelimiters = (text: string): string => {
+    let output = text;
+    // Ensure single spacing around delimiter
+    output = output.replace(/\s*\|\s*/g, " | ");
+    // Collapse repeated delimiters
+    output = output.replace(/(?: \| )+/g, " | ");
+    // Remove leading/trailing delimiters
+    output = output.replace(/^(?: \| )+/, "");
+    output = output.replace(/(?: \| )+$/, "");
+    return output;
+  };
+
   // Handle keyword click to insert template with smart delimiter logic
-  const handleKeywordClick = (template: string) => {
+  const handleKeywordClick = (template: string, isFileUpload = false) => {
+    if (isFileUpload) {
+      // For file uploads, add a default field to show the UI
+      updateFormDataField("name", "John Doe");
+      return;
+    }
+
     const currentValue = reqline;
     let insertText = template;
 
     // Smart delimiter logic
     if (currentValue.trim() !== "") {
-      // If there's already content, add delimiter before the keyword
-      insertText = " | " + template;
+      const endsWithDelimiter = /\|\s*$/.test(currentValue);
+      // If there's already a trailing delimiter, do not add another
+      insertText = (endsWithDelimiter ? "" : " | ") + template;
     }
 
-    setReqline(currentValue + insertText);
+    const newValue = normalizeDelimiters(currentValue + insertText);
+    setReqline(newValue);
+  };
+
+  // Auto-detect localhost URLs and enable proxy automatically
+  const checkAndEnableProxy = (reqlineText: string) => {
+    const localhostRegex = /localhost:\d+/i;
+    const hasLocalhost = localhostRegex.test(reqlineText);
+
+    if (hasLocalhost) {
+      // Always enable proxy when localhost is detected
+      setUseProxy(true);
+      // Extract the localhost URL from the reqline
+      const urlMatch = reqlineText.match(/URL\s+(https?:\/\/localhost:\d+)/i);
+      if (urlMatch) {
+        setProxyTarget(urlMatch[1]);
+      } else {
+        // Default to common localhost port
+        setProxyTarget("http://localhost:8080");
+      }
+    } else {
+      // Disable proxy if no localhost detected
+      setUseProxy(false);
+    }
+  };
+
+  // File handling functions
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.target.files || []);
+    setSelectedFiles((prev) => [...prev, ...files]);
+  };
+
+  const removeFile = (index: number) => {
+    setSelectedFiles((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const updateFormDataField = (key: string, value: string) => {
+    setFormDataFields((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const removeFormDataField = (key: string) => {
+    setFormDataFields((prev) => {
+      const newFields = { ...prev };
+      delete newFields[key];
+      return newFields;
+    });
+  };
+
+  const generateFormDataReqline = async () => {
+    try {
+      // Upload files first
+      const uploadedFiles = await fileUploadService.uploadFiles(selectedFiles);
+
+      // Generate FormData reqline with server file paths
+      const formDataReqline = fileUploadService.generateFormDataReqline(
+        uploadedFiles,
+        formDataFields
+      );
+
+      return formDataReqline;
+    } catch (error: any) {
+      setToast({
+        message: `File upload failed: ${error.message}`,
+        type: "error",
+      });
+      throw error;
+    }
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -197,21 +318,64 @@ const ReqlineParser = () => {
       return;
     }
 
+    // Normalize delimiters before sending
+    const preparedReqline = normalizeDelimiters(reqline).trim();
+    setReqline(preparedReqline);
+
     setIsLoading(true);
     setError(null);
     setResult(null);
 
     try {
-      const response = await axios.post(
-        `${config.apiUrl}/`,
-        { reqline: reqline.trim() },
-        {
+      // Determine endpoint and payload based on proxy usage
+      const endpoint = useProxy
+        ? `${config.apiUrl}/proxy`
+        : `${config.apiUrl}/`;
+
+      // Check if this is a FormData request with files
+      const hasFormDataWithFiles =
+        selectedFiles.length > 0 && preparedReqline.includes("FORMDATA");
+
+      let response;
+
+      if (hasFormDataWithFiles) {
+        // For FormData with files, we need to send the actual files
+        const formData = new FormData();
+        formData.append("reqline", preparedReqline);
+
+        if (useProxy) {
+          formData.append("proxy_target", proxyTarget);
+        }
+
+        // Add files to FormData
+        selectedFiles.forEach((file, index) => {
+          formData.append(`file_${index + 1}`, file);
+        });
+
+        // Add form fields
+        Object.entries(formDataFields).forEach(([key, value]) => {
+          formData.append(key, value);
+        });
+
+        response = await axios.post(endpoint, formData, {
+          timeout: REQUEST_TIMEOUT,
+          headers: {
+            "Content-Type": "multipart/form-data",
+          },
+        });
+      } else {
+        // Regular JSON request
+        const payload = useProxy
+          ? { reqline: preparedReqline, proxy_target: proxyTarget }
+          : { reqline: preparedReqline };
+
+        response = await axios.post(endpoint, payload, {
           timeout: REQUEST_TIMEOUT,
           headers: {
             "Content-Type": "application/json",
           },
-        }
-      );
+        });
+      }
 
       // Sanitize response data
       const sanitizedData = sanitizeResponseData(response.data);
@@ -220,10 +384,12 @@ const ReqlineParser = () => {
       // Add to history
       const historyItem: RequestHistory = {
         id: Date.now().toString(),
-        reqline: reqline.trim(),
+        reqline: preparedReqline,
         result: sanitizedData as ApiResponse,
         error: null,
         timestamp: Date.now(),
+        useProxy: useProxy,
+        proxyTarget: useProxy ? proxyTarget : undefined,
       };
       const updatedHistory = [historyItem, ...requestHistory.slice(0, 9)]; // Keep last 10
       setRequestHistory(updatedHistory);
@@ -248,10 +414,12 @@ const ReqlineParser = () => {
       // Add to history with error
       const historyItem: RequestHistory = {
         id: Date.now().toString(),
-        reqline: reqline.trim(),
+        reqline: preparedReqline,
         result: null,
         error: safeErrorMessage,
         timestamp: Date.now(),
+        useProxy: useProxy,
+        proxyTarget: useProxy ? proxyTarget : undefined,
       };
       const updatedHistory = [historyItem, ...requestHistory.slice(0, 9)]; // Keep last 10
       setRequestHistory(updatedHistory);
@@ -263,16 +431,6 @@ const ReqlineParser = () => {
       }
     } finally {
       setIsLoading(false);
-    }
-  };
-
-  const copyToClipboard = async (text: string) => {
-    try {
-      const sanitizedText = sanitizeInput(text);
-      await navigator.clipboard.writeText(sanitizedText);
-      setToast({ message: "Copied to clipboard!", type: "success" });
-    } catch {
-      setToast({ message: "Failed to copy to clipboard", type: "error" });
     }
   };
 
@@ -425,9 +583,20 @@ const ReqlineParser = () => {
   };
 
   const useVaultItem = (item: VaultItem) => {
-    setReqline(item.value);
-    setActiveTab("request"); // Switch to request tab
-    setToast({ message: `Loaded: ${item.name}`, type: "success" });
+    // Check if it's a proxy target
+    if (item.name.startsWith("Proxy:")) {
+      setProxyTarget(item.value);
+      setUseProxy(true);
+      setActiveTab("request"); // Switch to request tab
+      setToast({
+        message: `Proxy target set to ${item.value}`,
+        type: "success",
+      });
+    } else {
+      setReqline(item.value);
+      setActiveTab("request"); // Switch to request tab
+      setToast({ message: `Loaded: ${item.name}`, type: "success" });
+    }
   };
 
   const copyVaultItem = async (item: VaultItem) => {
@@ -444,6 +613,12 @@ const ReqlineParser = () => {
 
   const useHistoryItem = (item: RequestHistory) => {
     setReqline(item.reqline);
+    if (item.useProxy && item.proxyTarget) {
+      setUseProxy(true);
+      setProxyTarget(item.proxyTarget);
+    } else {
+      setUseProxy(false);
+    }
     setActiveTab("request"); // Switch to request tab
     setToast({ message: "Request loaded from history", type: "success" });
   };
@@ -484,7 +659,7 @@ const ReqlineParser = () => {
   };
 
   return (
-    <div className="max-w-6xl mx-auto space-y-4 sm:space-y-6 lg:space-y-8">
+    <div className="min-h-screen transition-colors duration-300 bg-transparent">
       {/* Toast Notification */}
       {toast && (
         <Toast
@@ -499,7 +674,11 @@ const ReqlineParser = () => {
       {showScrollToTop && (
         <button
           onClick={scrollToTop}
-          className="fixed bottom-6 right-6 z-50 w-12 h-12 bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 text-white rounded-full shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-110 flex items-center justify-center"
+          className={`fixed bottom-6 right-6 z-50 w-12 h-12 rounded-full shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-110 flex items-center justify-center ${
+            isDark
+              ? "bg-slate-700 hover:bg-slate-600 text-slate-100"
+              : "bg-slate-800 hover:bg-slate-900 text-slate-100"
+          }`}
           title="Scroll to top"
           aria-label="Scroll to top"
         >
@@ -507,155 +686,383 @@ const ReqlineParser = () => {
         </button>
       )}
 
-      {/* Header */}
-      <div className="glass-dark rounded-xl sm:rounded-2xl p-3 sm:p-6 lg:p-8 animate-fade-in-up border border-white/10">
-        <div className="flex flex-col gap-3 sm:gap-4 mb-4 sm:mb-6 lg:mb-8">
-          {/* Top row: Back button, icon, title */}
-          <div className="flex items-center gap-3 sm:gap-4">
-            <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-r from-blue-500 to-purple-500 rounded-xl flex items-center justify-center shadow-lg">
-              <FileText className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
+      {/* Main Container */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 lg:py-12">
+        {/* Header */}
+        <div className="mb-8 sm:mb-12">
+          <div className="flex items-center gap-4 mb-6">
+          <div
+              className={`w-12 h-12 sm:w-16 sm:h-16 rounded-2xl flex items-center justify-center shadow-xl ${
+                isDark ? "bg-slate-700" : "bg-slate-800"
+              }`}
+            >
+              <Zap className="w-6 h-6 sm:w-8 sm:h-8 text-white" />
             </div>
-            <div className="flex-1 min-w-0">
-              <h2 className="text-lg sm:text-xl lg:text-2xl font-bold text-white truncate">
+            <div>
+              <h1
+                className={`text-2xl sm:text-3xl lg:text-4xl font-bold mb-2 ${theme.text.primary}`}
+              >
                 API Request Tester
-              </h2>
-              <p className="text-blue-200 text-xs sm:text-sm lg:text-base">
+              </h1>
+              <p className={`text-sm sm:text-base ${theme.text.secondary}`}>
                 Test individual API endpoints with Reqline syntax
               </p>
             </div>
           </div>
 
-          {/* Tab Navigation */}
-          <div className="flex border-b border-white/10 overflow-x-auto scrollbar-hide">
+          {/* Navigation Tabs */}
+          <div
+            className={`flex rounded-2xl p-1 border transition-colors duration-300 ${
+              isDark
+                ? "bg-slate-800 border-slate-700"
+                : "bg-slate-100 border-slate-200"
+            }`}
+          >
             <button
               onClick={() => setActiveTab("request")}
-              className={`flex items-center gap-2 px-4 py-3 text-sm font-medium transition-all duration-300 border-b-2 flex-shrink-0 ${
+              className={`flex items-center gap-2 px-4 py-3 text-sm font-medium transition-all duration-300 rounded-xl flex-1 sm:flex-none sm:px-6 ${
                 activeTab === "request"
-                  ? "text-blue-300 border-blue-500 bg-blue-500/10"
-                  : "text-gray-400 border-transparent hover:text-white hover:bg-white/5"
+                  ? isDark
+                    ? "text-slate-100 bg-slate-700 border border-slate-600 shadow-lg"
+                    : "text-slate-100 bg-slate-800 border border-slate-700 shadow-lg"
+                  : isDark
+                  ? "text-slate-400 hover:text-slate-100 hover:bg-slate-700"
+                  : "text-slate-600 hover:text-slate-800 hover:bg-slate-200"
               }`}
             >
               <Send size={16} />
-              <span className="hidden sm:inline">Single Request</span>
-              <span className="sm:hidden">Request</span>
+              <span>Request</span>
             </button>
             <button
               onClick={() => setActiveTab("vault")}
-              className={`flex items-center gap-2 px-4 py-3 text-sm font-medium transition-all duration-300 border-b-2 flex-shrink-0 ${
+              className={`flex items-center gap-2 px-4 py-3 text-sm font-medium transition-all duration-300 rounded-xl flex-1 sm:flex-none sm:px-6 ${
                 activeTab === "vault"
-                  ? "text-blue-300 border-blue-500 bg-blue-500/10"
-                  : "text-gray-400 border-transparent hover:text-white hover:bg-white/5"
+                  ? isDark
+                    ? "text-slate-100 bg-slate-700 border border-slate-600 shadow-lg"
+                    : "text-slate-100 bg-slate-800 border border-slate-700 shadow-lg"
+                  : isDark
+                  ? "text-slate-400 hover:text-slate-100 hover:bg-slate-700"
+                  : "text-slate-600 hover:text-slate-800 hover:bg-slate-200"
               }`}
             >
               <Key size={16} />
-              <span className="hidden sm:inline">Vault</span>
-              <span className="sm:hidden">Vault</span>
+              <span>Vault</span>
             </button>
             <button
               onClick={() => setActiveTab("examples")}
-              className={`flex items-center gap-2 px-4 py-3 text-sm font-medium transition-all duration-300 border-b-2 flex-shrink-0 ${
+              className={`flex items-center gap-2 px-4 py-3 text-sm font-medium transition-all duration-300 rounded-xl flex-1 sm:flex-none sm:px-6 ${
                 activeTab === "examples"
-                  ? "text-blue-300 border-blue-500 bg-blue-500/10"
-                  : "text-gray-400 border-transparent hover:text-white hover:bg-white/5"
+                  ? isDark
+                    ? "text-slate-100 bg-slate-700 border border-slate-600 shadow-lg"
+                    : "text-slate-100 bg-slate-800 border border-slate-700 shadow-lg"
+                  : isDark
+                  ? "text-slate-400 hover:text-slate-100 hover:bg-slate-700"
+                  : "text-slate-600 hover:text-slate-800 hover:bg-slate-200"
               }`}
             >
               <Info size={16} />
-              <span className="hidden sm:inline">Examples</span>
-              <span className="sm:hidden">Examples</span>
+              <span>Examples</span>
             </button>
             <button
               onClick={() => setActiveTab("history")}
-              className={`flex items-center gap-2 px-4 py-3 text-sm font-medium transition-all duration-300 border-b-2 flex-shrink-0 ${
+              className={`flex items-center gap-2 px-4 py-3 text-sm font-medium transition-all duration-300 rounded-xl flex-1 sm:flex-none sm:px-6 ${
                 activeTab === "history"
-                  ? "text-blue-300 border-blue-500 bg-blue-500/10"
-                  : "text-gray-400 border-transparent hover:text-white hover:bg-white/5"
+                  ? isDark
+                    ? "text-slate-100 bg-slate-700 border border-slate-600 shadow-lg"
+                    : "text-slate-100 bg-slate-800 border border-slate-700 shadow-lg"
+                  : isDark
+                  ? "text-slate-400 hover:text-slate-100 hover:bg-slate-700"
+                  : "text-slate-600 hover:text-slate-800 hover:bg-slate-200"
               }`}
             >
               <History size={16} />
-              <span className="hidden sm:inline">History</span>
-              <span className="sm:hidden">History</span>
+              <span>History</span>
             </button>
           </div>
-
-          {/* Action Buttons - Only show in Request tab */}
-          {activeTab === "request" && (
-            <div className="flex flex-wrap gap-2 justify-center sm:justify-end">
-              <button
-                onClick={() => navigate("/multiple-endpoints")}
-                className="btn-secondary flex items-center gap-1 sm:gap-2 text-xs sm:text-sm px-3 py-2 sm:px-4 sm:py-2"
-                title="Test multiple endpoints"
-                aria-label="Test multiple endpoints"
-              >
-                <Layers size={14} className="sm:w-4 sm:h-4" />
-                <span className="hidden sm:inline">Multiple Endpoints</span>
-                <span className="sm:hidden">Multiple</span>
-              </button>
-            </div>
-          )}
         </div>
 
         {/* Tab Content */}
-        <div className="space-y-4 sm:space-y-6">
+        <div className="space-y-6 sm:space-y-8">
           {/* Single Request Tab */}
           {activeTab === "request" && (
-            <div className="space-y-4 sm:space-y-6">
-              {/* Request Form */}
-              <div className="bg-black/30 rounded-xl p-3 sm:p-6 border border-white/10">
-                <h4 className="text-sm sm:text-base font-semibold text-white mb-3 sm:mb-4 flex items-center gap-2">
-                  <Send className="w-4 h-4" />
-                  Request Syntax
-                </h4>
-                <form
-                  onSubmit={handleSubmit}
-                  className="space-y-3 sm:space-y-4"
-                >
-                  {/* Keyword Suggestions */}
-                  <div className="flex flex-wrap gap-2 sm:gap-3">
-                    {keywords.map((keyword, index) => (
-                      <button
-                        key={index}
-                        type="button"
-                        onClick={() => handleKeywordClick(keyword.template)}
-                        className={`px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-mono font-semibold transition-all duration-300 hover:scale-105 ${
-                          isKeywordPresent(keyword.text)
-                            ? "bg-green-500/20 text-green-300 border border-green-500/30"
-                            : "bg-red-500/20 text-red-300 border border-red-500/30 hover:bg-red-500/30"
-                        }`}
-                        title={`Insert ${keyword.template}`}
-                        aria-label={`Insert ${keyword.template}`}
-                      >
-                        {keyword.text}
-                      </button>
-                    ))}
-                  </div>
+            <div className="space-y-6 sm:space-y-8">
+              {/* Request Form Card */}
+              <div
+                className={`rounded-3xl p-6 sm:p-8 border shadow-lg transition-colors duration-300 bg-transparent ${theme.border.primary}`}
+              >
+                <div className="flex items-center justify-between mb-6">
+                  <h2
+                    className={`text-xl sm:text-2xl font-bold flex items-center gap-3 ${theme.text.primary}`}
+                  >
+                    <div
+                      className={`w-8 h-8 rounded-lg flex items-center justify-center ${
+                        isDark ? "bg-slate-700" : "bg-slate-800"
+                      }`}
+                    >
+                      <Send className="w-4 h-4 text-white" />
+                    </div>
+                    Request Builder
+                  </h2>
+                  <button
+                    onClick={() => navigate("/multiple-endpoints")}
+                    className={`flex items-center gap-2 text-sm px-4 py-2 rounded-xl transition-colors ${theme.button.secondary}`}
+                  >
+                    <Layers size={16} />
+                    <span className="hidden sm:inline">Multiple Endpoints</span>
+                    <span className="sm:hidden">Multiple</span>
+                  </button>
+                </div>
 
-                  <div className="relative">
-                    <textarea
-                      value={reqline}
-                      onChange={handleInputChange}
-                      placeholder={
-                        'HTTP GET | URL https://dummyjson.com/quotes/3 | QUERY {"refid": 1920933}'
-                      }
-                      className="w-full h-20 sm:h-24 lg:h-32 bg-black/40 border border-white/20 rounded-xl text-white placeholder-blue-300 resize-none text-xs sm:text-sm font-mono p-3 sm:p-4 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300"
-                      maxLength={10000}
-                      aria-label="Reqline syntax input"
-                    />
-                    <div className="absolute top-2 sm:top-3 lg:top-4 right-2 sm:right-3 lg:right-4 text-blue-300 text-xs bg-black/60 px-2 py-1 rounded-full">
-                      {reqline.length}/10000
+                <form onSubmit={handleSubmit} className="space-y-6">
+                  {/* Keyword Suggestions */}
+                  <div>
+                    <h3
+                      className={`${theme.text.primary} font-semibold mb-3 flex items-center gap-2`}
+                    >
+                      <Code className="w-4 h-4" />
+                      Quick Actions
+                    </h3>
+                    <div className="flex flex-wrap gap-2">
+                      {keywords.map((keyword, index) => (
+                        <button
+                          key={index}
+                          type="button"
+                          onClick={() =>
+                            handleKeywordClick(
+                              keyword.template,
+                              (keyword as any).isFileUpload
+                            )
+                          }
+                          className={`px-4 py-2 rounded-xl text-sm font-medium transition-all duration-300 hover:scale-105 ${
+                            isKeywordPresent(keyword.text)
+                              ? theme.button.keywordActive
+                              : theme.button.keywordInactive
+                          }`}
+                          title={`Insert ${keyword.template}`}
+                        >
+                          {keyword.text}
+                        </button>
+                      ))}
                     </div>
                   </div>
 
-                  <div className="flex flex-col sm:flex-row flex-wrap gap-2 sm:gap-3">
+                  {/* File Upload Section */}
+                  {(selectedFiles.length > 0 ||
+                    Object.keys(formDataFields).length > 0) && (
+                    <div className="bg-gradient-to-r from-blue-500/10 to-purple-500/10 rounded-2xl p-6 border border-blue-500/20">
+                      <h3 className="text-white font-semibold mb-4 flex items-center gap-2">
+                        <Upload className="w-5 h-5" />
+                        FormData Configuration
+                      </h3>
+
+                      {/* File Selection */}
+                      <div className="mb-6">
+                        <label className="block text-blue-300 font-medium mb-3">
+                          Files to Upload
+                        </label>
+                        <input
+                          type="file"
+                          multiple
+                          onChange={handleFileSelect}
+                          className="w-full bg-black/40 border border-white/20 rounded-xl text-white text-sm p-4 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        />
+                        {selectedFiles.length > 0 && (
+                          <div className="mt-4 space-y-2">
+                            {selectedFiles.map((file, index) => (
+                              <div
+                                key={index}
+                                className="flex items-center justify-between bg-black/40 rounded-xl p-3"
+                              >
+                                <span className="text-white text-sm truncate">
+                                  {file.name}
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => removeFile(index)}
+                                  className={`${theme.text.muted} hover:${theme.text.secondary} text-sm px-3 py-1 rounded-lg hover:${theme.bg.secondary}`}
+                                >
+                                  Remove
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Form Data Fields */}
+                      <div className="mb-6">
+                        <label className="block text-blue-300 font-medium mb-3">
+                          Additional Form Fields
+                        </label>
+                        {Object.entries(formDataFields).map(([key, value]) => (
+                          <div key={key} className="flex gap-3 mb-3">
+                            <input
+                              type="text"
+                              placeholder="Field name"
+                              value={key}
+                              onChange={(e) => {
+                                const newKey = e.target.value;
+                                const newFields = { ...formDataFields };
+                                delete newFields[key];
+                                newFields[newKey] = value;
+                                setFormDataFields(newFields);
+                              }}
+                              className="flex-1 bg-black/40 border border-white/20 rounded-xl text-white placeholder-blue-300 text-sm p-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            />
+                            <input
+                              type="text"
+                              placeholder="Field value"
+                              value={value}
+                              onChange={(e) =>
+                                updateFormDataField(key, e.target.value)
+                              }
+                              className="flex-1 bg-black/40 border border-white/20 rounded-xl text-white placeholder-blue-300 text-sm p-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => removeFormDataField(key)}
+                              className={`${theme.text.muted} hover:${theme.text.secondary} text-sm px-4 py-3 rounded-xl hover:${theme.bg.secondary}`}
+                            >
+                              Remove
+                            </button>
+                          </div>
+                        ))}
+                        <button
+                          type="button"
+                          onClick={() =>
+                            updateFormDataField(`field_${Date.now()}`, "")
+                          }
+                          className="text-blue-400 hover:text-blue-300 text-sm"
+                        >
+                          + Add Field
+                        </button>
+                      </div>
+
+                      {/* Generate FormData Button */}
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          try {
+                            const formDataReqline =
+                              await generateFormDataReqline();
+                            const currentValue = reqline;
+                            const insertText =
+                              currentValue.trim() !== ""
+                                ? " | " + formDataReqline
+                                : formDataReqline;
+                            setReqline(currentValue + insertText);
+                            setToast({
+                              message: "FormData generated successfully!",
+                              type: "success",
+                            });
+                          } catch (error) {
+                            // Error already handled in generateFormDataReqline
+                          }
+                        }}
+                        className="btn-primary flex items-center gap-2 text-sm px-6 py-3 rounded-xl"
+                      >
+                        <Upload className="w-4 h-4" />
+                        Generate FormData
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Request Input */}
+                  <div>
+                    <h3
+                      className={`${theme.text.primary} font-semibold mb-3 flex items-center gap-2`}
+                    >
+                      <FileText className="w-4 h-4" />
+                      Request Syntax
+                    </h3>
+                    <div className="relative">
+                      <textarea
+                        value={reqline}
+                        onChange={handleInputChange}
+                        placeholder="HTTP GET | URL https://dummyjson.com/quotes/3 | QUERY {'refid': 1920933}"
+                        className={`w-full h-32 ${theme.bg.input} ${theme.border.primary} rounded-2xl ${theme.text.primary} ${theme.text.placeholder} resize-none text-sm font-mono p-6 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all duration-300`}
+                        maxLength={10000}
+                        aria-label="Reqline syntax input"
+                      />
+                      <div
+                        className={`absolute top-4 right-4 ${theme.text.muted} text-xs ${theme.bg.secondary} px-3 py-1 rounded-full`}
+                      >
+                        {reqline.length}/10000
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Proxy Configuration */}
+                  {useProxy && (
+                    <div className="bg-gradient-to-r from-blue-500/10 to-cyan-500/10 rounded-2xl p-6 border border-blue-500/20">
+                      <div className="flex items-center justify-between mb-4">
+                        <h3 className="text-white font-semibold flex items-center gap-2">
+                          <Globe className="w-5 h-5 text-blue-300" />
+                          🚀 Proxy Active (Localhost Detected)
+                        </h3>
+                        <button
+                          type="button"
+                          onClick={() => setUseProxy(false)}
+                          className="text-blue-400 hover:text-blue-300 text-sm underline"
+                        >
+                          Disable
+                        </button>
+                      </div>
+                      <div className="space-y-4">
+                        <div className="flex gap-3">
+                          <input
+                            type="text"
+                            value={proxyTarget}
+                            onChange={(e) => setProxyTarget(e.target.value)}
+                            placeholder="http://localhost:8080"
+                            className="flex-1 bg-black/40 border border-white/20 rounded-xl text-white placeholder-blue-300 text-sm p-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (proxyTarget.trim()) {
+                                const item: VaultItem = {
+                                  id: Date.now().toString(),
+                                  name: `Proxy: ${proxyTarget}`,
+                                  value: proxyTarget,
+                                  createdAt: Date.now(),
+                                  updatedAt: Date.now(),
+                                };
+                                const updatedItems = [...vaultItems, item];
+                                setVaultItems(updatedItems);
+                                saveVaultToStorage(updatedItems);
+                                setToast({
+                                  message: "Proxy target saved to vault",
+                                  type: "success",
+                                });
+                              }
+                            }}
+                            className={`px-4 py-3 ${theme.status.info} rounded-xl hover:${theme.bg.secondary} transition-colors text-sm`}
+                            title="Save proxy target to vault"
+                          >
+                            <Save className="w-4 h-4" />
+                          </button>
+                        </div>
+                        <p className="text-blue-300 text-sm">
+                          💡 Proxy allows testing localhost APIs from deployed
+                          app. Make sure your local server is running!
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Action Buttons */}
+                  <div className="flex flex-col sm:flex-row gap-4">
                     <button
                       type="submit"
                       disabled={isLoading || !reqline.trim()}
-                      className="btn-primary flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed text-xs sm:text-sm flex-1 sm:flex-none"
+                      className="bg-blue-600 hover:bg-blue-700 text-white flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed text-lg flex-1 sm:flex-none px-8 py-4 rounded-xl font-semibold transition-colors duration-200"
                       aria-label="Execute request"
                     >
                       {isLoading ? (
-                        <LoadingSpinner size={16} />
+                        <LoadingSpinner size={20} />
                       ) : (
-                        <Send size={16} />
+                        <Send size={20} />
                       )}
                       {isLoading ? "Processing..." : "Execute Request"}
                     </button>
@@ -663,10 +1070,10 @@ const ReqlineParser = () => {
                     <button
                       type="button"
                       onClick={handleClear}
-                      className="btn-secondary flex items-center justify-center gap-2 text-xs sm:text-sm"
+                      className="bg-gray-200 hover:bg-gray-300 text-gray-800 flex items-center justify-center gap-3 text-sm px-8 py-4 rounded-xl transition-colors duration-200"
                       aria-label="Clear all data"
                     >
-                      <RotateCcw size={16} />
+                      <RotateCcw size={20} />
                       Clear
                     </button>
                   </div>
@@ -677,52 +1084,70 @@ const ReqlineParser = () => {
               {(result || error) && (
                 <div
                   id="response-details-section"
-                  className="bg-black/30 rounded-xl p-3 sm:p-6 border border-white/10"
+                  className={`${theme.bg.card} rounded-3xl p-6 sm:p-8 ${theme.border.primary} shadow-lg`}
                 >
-                  <h4 className="text-sm sm:text-base font-semibold text-white mb-3 sm:mb-4 flex items-center gap-2">
-                    {result ? (
-                      <CheckCircle className="w-4 h-4 text-green-400" />
-                    ) : (
-                      <AlertTriangle className="w-4 h-4 text-red-400" />
-                    )}
+                  <h2
+                    className={`text-xl sm:text-2xl font-bold ${theme.text.primary} mb-6 flex items-center gap-3`}
+                  >
+                    <div className="w-8 h-8 bg-green-600 rounded-lg flex items-center justify-center">
+                      {result ? (
+                        <CheckCircle className="w-4 h-4 text-white" />
+                      ) : (
+                        <AlertTriangle className="w-4 h-4 text-white" />
+                      )}
+                    </div>
                     {result ? "Response Details" : "Error Details"}
-                  </h4>
+                  </h2>
 
                   {result && (
-                    <div className="space-y-4">
-                      {/* Response Summary */}
-                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-                        <div className="bg-green-500/10 rounded-lg p-3 border border-green-500/30">
-                          <div className="text-xs text-green-300 mb-1">
+                    <div className="space-y-6">
+                      {/* Response Summary Cards */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                        <div
+                          className={`${theme.status.success} rounded-2xl p-4`}
+                        >
+                          <div
+                            className={`${theme.text.accent} text-sm font-medium mb-1`}
+                          >
                             Status
                           </div>
-                          <div className="text-white font-semibold">
+                          <div
+                            className={`${theme.text.primary} text-2xl font-bold`}
+                          >
                             {result.response.http_status}
                           </div>
                         </div>
-                        <div className="bg-blue-500/10 rounded-lg p-3 border border-blue-500/30">
-                          <div className="text-xs text-blue-300 mb-1">
+                        <div className={`${theme.status.info} rounded-2xl p-4`}>
+                          <div
+                            className={`${theme.text.accent} text-sm font-medium mb-1`}
+                          >
                             Duration
                           </div>
-                          <div className="text-white font-semibold">
+                          <div
+                            className={`${theme.text.primary} text-2xl font-bold`}
+                          >
                             {formatDuration(result.response.duration)}
                           </div>
                         </div>
-                        <div className="bg-purple-500/10 rounded-lg p-3 border border-purple-500/30">
-                          <div className="text-xs text-purple-300 mb-1">
+                        <div className={`${theme.status.info} rounded-2xl p-4`}>
+                          <div
+                            className={`${theme.text.accent} text-sm font-medium mb-1`}
+                          >
                             Started
                           </div>
-                          <div className="text-white font-semibold text-xs">
+                          <div className={`${theme.text.primary} text-sm`}>
                             {formatTimestamp(
                               result.response.request_start_timestamp
                             )}
                           </div>
                         </div>
-                        <div className="bg-orange-500/10 rounded-lg p-3 border border-orange-500/30">
-                          <div className="text-xs text-orange-300 mb-1">
+                        <div className={`${theme.status.info} rounded-2xl p-4`}>
+                          <div
+                            className={`${theme.text.accent} text-sm font-medium mb-1`}
+                          >
                             Completed
                           </div>
-                          <div className="text-white font-semibold text-xs">
+                          <div className={`${theme.text.primary} text-sm`}>
                             {formatTimestamp(
                               result.response.request_stop_timestamp
                             )}
@@ -731,38 +1156,66 @@ const ReqlineParser = () => {
                       </div>
 
                       {/* Request Details */}
-                      <div className="bg-black/40 rounded-lg p-3 sm:p-4 border border-white/10">
-                        <h5 className="text-white font-medium mb-2 flex items-center gap-2">
+                      <div
+                        className={`${theme.bg.code} rounded-2xl p-6 ${theme.border.primary}`}
+                      >
+                        <h3
+                          className={`${theme.text.primary} font-semibold mb-4 flex items-center gap-2`}
+                        >
                           <Globe className="w-4 h-4" />
                           Request Details
-                        </h5>
-                        <div className="space-y-2 text-xs sm:text-sm">
+                        </h3>
+                        <div className="space-y-3 text-sm">
                           <div>
-                            <span className="text-blue-300">URL:</span>{" "}
-                            <span className="text-white font-mono">
+                            <span
+                              className={`${theme.text.accent} font-medium`}
+                            >
+                              URL:
+                            </span>{" "}
+                            <span
+                              className={`${theme.text.primary} font-mono break-all`}
+                            >
                               {result.request.full_url}
                             </span>
                           </div>
                           {Object.keys(result.request.headers).length > 0 && (
                             <div>
-                              <span className="text-blue-300">Headers:</span>{" "}
-                              <span className="text-white font-mono">
+                              <span
+                                className={`${theme.text.accent} font-medium`}
+                              >
+                                Headers:
+                              </span>{" "}
+                              <span
+                                className={`${theme.text.primary} font-mono`}
+                              >
                                 {JSON.stringify(result.request.headers)}
                               </span>
                             </div>
                           )}
                           {Object.keys(result.request.query).length > 0 && (
                             <div>
-                              <span className="text-blue-300">Query:</span>{" "}
-                              <span className="text-white font-mono">
+                              <span
+                                className={`${theme.text.accent} font-medium`}
+                              >
+                                Query:
+                              </span>{" "}
+                              <span
+                                className={`${theme.text.primary} font-mono`}
+                              >
                                 {JSON.stringify(result.request.query)}
                               </span>
                             </div>
                           )}
                           {Object.keys(result.request.body).length > 0 && (
                             <div>
-                              <span className="text-blue-300">Body:</span>{" "}
-                              <span className="text-white font-mono">
+                              <span
+                                className={`${theme.text.accent} font-medium`}
+                              >
+                                Body:
+                              </span>{" "}
+                              <span
+                                className={`${theme.text.primary} font-mono`}
+                              >
                                 {JSON.stringify(result.request.body)}
                               </span>
                             </div>
@@ -770,49 +1223,89 @@ const ReqlineParser = () => {
                         </div>
                       </div>
 
+                      {/* Proxy Information */}
+                      {(result as any).proxy_info && (
+                        <div className="bg-gradient-to-r from-blue-500/10 to-cyan-500/10 rounded-2xl p-6 border border-blue-500/20">
+                          <h3 className="text-blue-300 font-semibold mb-4 flex items-center gap-2">
+                            <Globe className="w-4 h-4" />
+                            Proxy Information
+                          </h3>
+                          <div className="space-y-3 text-sm">
+                            <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
+                              <span className="text-blue-300 font-medium">
+                                Original URL:
+                              </span>
+                              <span className="text-white font-mono break-all">
+                                {(result as any).proxy_info.original_url}
+                              </span>
+                            </div>
+                            <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
+                              <span className="text-blue-300 font-medium">
+                                Proxy Target:
+                              </span>
+                              <span className="text-white font-mono break-all">
+                                {(result as any).proxy_info.proxy_target}
+                              </span>
+                            </div>
+                            <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
+                              <span className="text-blue-300 font-medium">
+                                Proxied URL:
+                              </span>
+                              <span className="text-white font-mono break-all">
+                                {(result as any).proxy_info.proxied_url}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
                       {/* Response Data */}
-                      <div className="bg-black/40 rounded-lg p-3 sm:p-4 border border-white/10">
-                        <div className="flex items-center justify-between mb-2">
-                          <h5 className="text-white font-medium flex items-center gap-2">
+                      <div className="bg-black/40 rounded-2xl p-6 border border-white/10">
+                        <div className="flex items-center justify-between mb-4">
+                          <h3 className="text-white font-semibold flex items-center gap-2">
                             <FileText className="w-4 h-4" />
                             Response Data
-                          </h5>
+                          </h3>
                           <div className="flex gap-2">
                             <button
                               onClick={copyResponseData}
-                              className="p-1 text-blue-300 hover:text-white hover:bg-blue-500/20 rounded transition-all duration-300"
+                              className={`p-2 ${theme.text.accent} hover:text-white hover:${theme.bg.secondary} rounded-xl transition-all duration-300`}
                               title="Copy response data"
                             >
-                              <Copy size={14} />
+                              <Copy size={16} />
                             </button>
                             <button
                               onClick={copyResultAsJson}
-                              className="p-1 text-blue-300 hover:text-white hover:bg-blue-500/20 rounded transition-all duration-300"
+                              className={`p-2 ${theme.text.accent} hover:text-white hover:${theme.bg.secondary} rounded-xl transition-all duration-300`}
                               title="Copy full result"
                             >
-                              <Download size={14} />
+                              <Download size={16} />
                             </button>
                           </div>
                         </div>
-                        <div className="code-block text-xs sm:text-sm max-h-64 overflow-y-auto">
-                          {JSON.stringify(
-                            result.response.response_data,
-                            null,
-                            2
-                          )}
+                        <div className="bg-black/60 rounded-xl p-4 max-h-64 overflow-y-auto">
+                          <pre className="text-sm text-white whitespace-pre-wrap">
+                            {JSON.stringify(
+                              result.response.response_data,
+                              null,
+                              2
+                            )}
+                          </pre>
                         </div>
                       </div>
                     </div>
                   )}
 
                   {error && (
-                    <div className="bg-red-500/10 rounded-lg p-3 sm:p-4 border border-red-500/30">
-                      <h5 className="text-red-300 font-medium mb-2 flex items-center gap-2">
+                    <div className="bg-gradient-to-r from-red-500/10 to-pink-500/10 rounded-2xl p-6 border border-red-500/20">
+                      <h3 className="text-red-300 font-semibold mb-4 flex items-center gap-2">
                         <AlertTriangle className="w-4 h-4" />
                         Error Details
-                      </h5>
-                      <div className="code-block text-xs sm:text-sm text-red-200">
-                        {error}
+                      </h3>
+                      <div className="bg-black/60 rounded-xl p-4">
+                        <pre className="text-sm text-red-200 whitespace-pre-wrap">
+                          {error}
+                        </pre>
                       </div>
                     </div>
                   )}
@@ -823,14 +1316,24 @@ const ReqlineParser = () => {
 
           {/* Vault Tab */}
           {activeTab === "vault" && (
-            <div className="space-y-4 sm:space-y-6">
+            <div className="space-y-6 sm:space-y-8">
               {/* Add New Vault Item */}
-              <div className="bg-black/30 rounded-xl p-3 sm:p-6 border border-white/10">
-                <h4 className="text-sm sm:text-base font-semibold text-white mb-3 sm:mb-4 flex items-center gap-2">
-                  <Plus className="w-4 h-4" />
+              <div
+                className={`${theme.bg.card} rounded-3xl p-6 sm:p-8 ${theme.border.primary} shadow-lg`}
+              >
+                <h2
+                  className={`text-xl sm:text-2xl font-bold ${theme.text.primary} mb-6 flex items-center gap-3`}
+                >
+                  <div
+                    className={`w-8 h-8 ${
+                      isDark ? "bg-slate-700" : "bg-slate-800"
+                    } rounded-lg flex items-center justify-center`}
+                  >
+                    <Plus className="w-4 h-4 text-white" />
+                  </div>
                   Add New Vault Item
-                </h4>
-                <div className="space-y-3 sm:space-y-4">
+                </h2>
+                <div className="space-y-4">
                   <input
                     type="text"
                     placeholder="Name (e.g., User Login Request)"
@@ -841,7 +1344,7 @@ const ReqlineParser = () => {
                         name: e.target.value,
                       }))
                     }
-                    className="bg-black/40 border border-white/20 rounded-lg text-white placeholder-blue-300 text-xs sm:text-sm p-2 sm:p-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent w-full"
+                    className={`w-full ${theme.bg.input} ${theme.border.primary} rounded-xl ${theme.text.primary} ${theme.text.placeholder} text-sm p-4 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent`}
                   />
                   <textarea
                     placeholder="Reqline Syntax"
@@ -852,71 +1355,91 @@ const ReqlineParser = () => {
                         value: e.target.value,
                       }))
                     }
-                    className="bg-black/40 border border-white/20 rounded-lg text-white placeholder-blue-300 text-xs sm:text-sm p-2 sm:p-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none h-20 font-mono w-full"
+                    className={`w-full ${theme.bg.input} ${theme.border.primary} rounded-xl ${theme.text.primary} ${theme.text.placeholder} text-sm p-4 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent resize-none h-24 font-mono`}
                   />
-
                   <button
                     onClick={addVaultItem}
-                    className="btn-primary flex items-center gap-2 text-xs sm:text-sm px-4 py-2"
+                    className="bg-blue-600 hover:bg-blue-700 text-white flex items-center gap-2 text-sm px-6 py-3 rounded-xl transition-colors duration-200"
                   >
-                    <Save size={16} />
+                    <Save className="w-4 h-4" />
                     Add to Vault
                   </button>
                 </div>
               </div>
 
               {/* Vault Items */}
-              <div className="bg-black/30 rounded-xl p-3 sm:p-6 border border-white/10">
-                <h4 className="text-sm sm:text-base font-semibold text-white mb-3 sm:mb-4 flex items-center gap-2">
-                  <Key className="w-4 h-4" />
+              <div
+                className={`${theme.bg.card} rounded-3xl p-6 sm:p-8 ${theme.border.primary} shadow-lg`}
+              >
+                <h2
+                  className={`text-xl sm:text-2xl font-bold ${theme.text.primary} mb-6 flex items-center gap-3`}
+                >
+                  <div
+                    className={`w-8 h-8 ${
+                      isDark ? "bg-slate-700" : "bg-slate-800"
+                    } rounded-lg flex items-center justify-center`}
+                  >
+                    <Key className="w-4 h-4 text-white" />
+                  </div>
                   Saved Vault Items
-                </h4>
+                </h2>
                 {vaultItems.length === 0 ? (
-                  <div className="text-center py-8 text-blue-200 text-sm">
-                    <Key className="w-12 h-12 mx-auto mb-4 text-blue-300" />
-                    <p>No vault items saved yet. Add your first item above.</p>
+                  <div className={`text-center py-12 ${theme.text.secondary}`}>
+                    <Key
+                      className={`w-16 h-16 mx-auto mb-4 ${theme.text.muted}`}
+                    />
+                    <p className="text-lg">
+                      No vault items saved yet. Add your first item above.
+                    </p>
                   </div>
                 ) : (
-                  <div className="space-y-3">
+                  <div className="space-y-4">
                     {vaultItems.map((item) => (
                       <div
                         key={item.id}
-                        className="bg-black/40 rounded-lg p-3 border border-white/10 hover:bg-black/60 transition-all duration-300"
+                        className={`${theme.bg.code} rounded-2xl p-4 ${theme.border.primary} hover:${theme.bg.secondary} transition-all duration-300`}
                       >
-                        <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+                        <div className="flex flex-col sm:flex-row sm:items-center gap-4">
                           <div className="flex-1 min-w-0">
-                            <h5 className="font-semibold text-white text-sm mb-1 truncate">
+                            <h3
+                              className={`font-semibold ${theme.text.primary} text-lg mb-2`}
+                            >
                               {item.name}
-                            </h5>
-
-                            <div className="code-block text-xs max-h-16 overflow-y-auto break-words font-mono">
-                              {item.value}
+                            </h3>
+                            <div
+                              className={`${theme.bg.code} rounded-xl p-3 max-h-20 overflow-y-auto`}
+                            >
+                              <pre
+                                className={`text-sm ${theme.text.primary} whitespace-pre-wrap font-mono`}
+                              >
+                                {item.value}
+                              </pre>
                             </div>
-                            <div className="text-xs text-gray-400 mt-2">
+                            <div className={`text-sm ${theme.text.muted} mt-2`}>
                               {new Date(item.createdAt).toLocaleDateString()}
                             </div>
                           </div>
-                          <div className="flex gap-2 flex-shrink-0 justify-center sm:justify-end">
+                          <div className="flex gap-2 flex-shrink-0">
                             <button
                               onClick={() => useVaultItem(item)}
-                              className="p-2 text-blue-300 hover:text-white hover:bg-blue-500/20 rounded-lg transition-all duration-300"
+                              className={`p-3 ${theme.button.vaultAction} rounded-xl transition-all duration-300`}
                               title="Use this item"
                             >
-                              <Send size={16} />
+                              <Send size={18} />
                             </button>
                             <button
                               onClick={() => copyVaultItem(item)}
-                              className="p-2 text-blue-300 hover:text-white hover:bg-blue-500/20 rounded-lg transition-all duration-300"
+                              className={`p-3 ${theme.button.vaultAction} rounded-xl transition-all duration-300`}
                               title="Copy to clipboard"
                             >
-                              <Copy size={16} />
+                              <Copy size={18} />
                             </button>
                             <button
                               onClick={() => removeVaultItem(item.id)}
-                              className="p-2 text-red-300 hover:text-white hover:bg-red-500/20 rounded-lg transition-all duration-300"
+                              className="p-3 text-red-600 hover:text-white hover:bg-red-600 rounded-xl transition-all duration-300"
                               title="Remove item"
                             >
-                              <Trash2 size={16} />
+                              <Trash2 size={18} />
                             </button>
                           </div>
                         </div>
@@ -930,20 +1453,32 @@ const ReqlineParser = () => {
 
           {/* Examples Tab */}
           {activeTab === "examples" && (
-            <div className="bg-black/30 rounded-xl p-3 sm:p-6 border border-white/10">
-              <h4 className="text-sm sm:text-base font-semibold text-white mb-3 sm:mb-4 flex items-center gap-2">
-                <Info className="w-4 h-4" />
+            <div
+              className={`${theme.bg.card} rounded-3xl p-6 sm:p-8 ${theme.border.primary} shadow-lg`}
+            >
+              <h2
+                className={`text-xl sm:text-2xl font-bold ${theme.text.primary} mb-6 flex items-center gap-3`}
+              >
+                <div
+                  className={`w-8 h-8 ${
+                    isDark ? "bg-slate-700" : "bg-slate-800"
+                  } rounded-lg flex items-center justify-center`}
+                >
+                  <Info className="w-4 h-4 text-white" />
+                </div>
                 Example Requests
-              </h4>
-              <p className="text-blue-200 text-sm mb-4">
+              </h2>
+              <p
+                className={`${theme.text.secondary} text-base sm:text-lg mb-6 sm:mb-8`}
+              >
                 Common use cases and syntax examples. Click any example to load
                 it into the request form.
               </p>
-              <div className="grid gap-3 sm:gap-4">
+              <div className="grid gap-4 sm:gap-6">
                 {examples.map((example, index) => (
                   <div
                     key={index}
-                    className="bg-black/40 rounded-xl p-3 sm:p-4 border border-white/10 hover:bg-black/60 transition-all duration-300 group cursor-pointer"
+                    className={`${theme.bg.code} rounded-2xl p-4 sm:p-6 ${theme.border.primary} hover:${theme.bg.secondary} transition-all duration-300 group cursor-pointer w-full overflow-hidden`}
                     onClick={() => {
                       setReqline(example.reqline);
                       setActiveTab("request");
@@ -953,25 +1488,44 @@ const ReqlineParser = () => {
                       });
                     }}
                   >
-                    <div className="flex items-start gap-3">
+                    <div className="flex flex-col sm:flex-row sm:items-start gap-3 sm:gap-4">
                       <div
-                        className={`w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-r ${example.color} rounded-lg flex items-center justify-center flex-shrink-0`}
+                        className={`w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-r ${example.color} rounded-xl flex items-center justify-center flex-shrink-0 mx-auto sm:mx-0`}
                       >
                         {example.icon}
                       </div>
-                      <div className="min-w-0 flex-1">
-                        <h5 className="font-semibold text-white text-sm sm:text-base mb-1">
+                      <div className="min-w-0 flex-1 text-center sm:text-left w-full overflow-hidden">
+                        <h3
+                          className={`font-semibold ${theme.text.primary} text-base sm:text-lg mb-2`}
+                        >
                           {example.name}
-                        </h5>
-                        <p className="text-blue-200 text-xs sm:text-sm mb-2">
+                        </h3>
+                        <p
+                          className={`${theme.text.secondary} text-sm sm:text-base mb-3`}
+                        >
                           {example.description}
                         </p>
-                        <div className="code-block text-xs max-h-16 overflow-y-auto break-words font-mono">
-                          {example.reqline}
+                        {example.note && (
+                          <p
+                            className={`${theme.text.accent} text-xs sm:text-sm mb-3 ${theme.status.info} px-2 sm:px-3 py-2 rounded-xl`}
+                          >
+                            💡 {example.note}
+                          </p>
+                        )}
+                        <div
+                          className={`${theme.bg.code} rounded-xl p-3 sm:p-4 max-h-20 sm:max-h-24 overflow-y-auto overflow-x-hidden`}
+                        >
+                          <pre
+                            className={`text-xs sm:text-sm ${theme.text.primary} whitespace-pre-wrap font-mono break-words break-all`}
+                          >
+                            {example.reqline}
+                          </pre>
                         </div>
                       </div>
-                      <div className="flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                        <ArrowRight className="w-5 h-5 text-blue-300" />
+                      <div className="flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 hidden sm:block">
+                        <ArrowRight
+                          className={`w-5 h-5 sm:w-6 sm:h-6 ${theme.text.accent}`}
+                        />
                       </div>
                     </div>
                   </div>
@@ -982,63 +1536,93 @@ const ReqlineParser = () => {
 
           {/* History Tab */}
           {activeTab === "history" && (
-            <div className="bg-black/30 rounded-xl p-3 sm:p-6 border border-white/10">
-              <h4 className="text-sm sm:text-base font-semibold text-white mb-3 sm:mb-4 flex items-center gap-2">
-                <History className="w-4 h-4" />
+            <div
+              className={`${theme.bg.card} rounded-3xl p-6 sm:p-8 ${theme.border.primary} shadow-lg`}
+            >
+              <h2
+                className={`text-xl sm:text-2xl font-bold ${theme.text.primary} mb-6 flex items-center gap-3`}
+              >
+                <div
+                  className={`w-8 h-8 ${
+                    isDark ? "bg-slate-700" : "bg-slate-800"
+                  } rounded-lg flex items-center justify-center`}
+                >
+                  <History className="w-4 h-4 text-white" />
+                </div>
                 Request History
-              </h4>
+              </h2>
               {requestHistory.length === 0 ? (
-                <div className="text-center py-8 text-blue-200 text-sm">
-                  <History className="w-12 h-12 mx-auto mb-4 text-blue-300" />
-                  <p>
+                <div className={`text-center py-12 ${theme.text.secondary}`}>
+                  <History
+                    className={`w-16 h-16 mx-auto mb-4 ${theme.text.muted}`}
+                  />
+                  <p className="text-lg">
                     No request history yet. Execute your first request to see it
                     here.
                   </p>
                 </div>
               ) : (
-                <div className="space-y-3">
+                <div className="space-y-4">
                   {requestHistory.map((item) => (
                     <div
                       key={item.id}
-                      className="bg-black/40 rounded-lg p-3 border border-white/10 hover:bg-black/60 transition-all duration-300"
+                      className={`${theme.bg.code} rounded-2xl p-4 ${theme.border.primary} hover:${theme.bg.secondary} transition-all duration-300`}
                     >
-                      <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+                      <div className="flex flex-col sm:flex-row sm:items-center gap-4">
                         <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-1">
-                            <h5 className="font-semibold text-white text-sm truncate">
+                          <div className="flex items-center gap-3 mb-2">
+                            <h3
+                              className={`font-semibold ${theme.text.primary} text-lg truncate`}
+                            >
                               {item.reqline.substring(0, 50)}...
-                            </h5>
+                            </h3>
                             {item.result ? (
-                              <span className="text-xs text-green-300 bg-green-500/20 px-2 py-1 rounded-full">
+                              <span className="text-sm text-green-700 bg-green-100 px-3 py-1 rounded-full">
                                 {item.result.response.http_status}
                               </span>
                             ) : (
-                              <span className="text-xs text-red-300 bg-red-500/20 px-2 py-1 rounded-full">
+                              <span className="text-sm text-red-700 bg-red-100 px-3 py-1 rounded-full">
                                 Error
                               </span>
                             )}
                           </div>
-                          <div className="code-block text-xs max-h-16 overflow-y-auto break-words font-mono">
-                            {item.reqline}
+                          <div
+                            className={`${theme.bg.code} rounded-xl p-3 max-h-20 overflow-y-auto`}
+                          >
+                            <pre
+                              className={`text-sm ${theme.text.primary} whitespace-pre-wrap font-mono`}
+                            >
+                              {item.reqline}
+                            </pre>
                           </div>
-                          <div className="text-xs text-gray-400 mt-2">
-                            {new Date(item.timestamp).toLocaleString()}
+                          <div className="flex flex-wrap items-center gap-3 mt-2">
+                            <span className={`text-sm ${theme.text.muted}`}>
+                              {new Date(item.timestamp).toLocaleString()}
+                            </span>
+                            {item.useProxy && item.proxyTarget && (
+                              <span
+                                className={`text-sm ${theme.text.accent} ${theme.status.info} px-3 py-1 rounded-full flex items-center gap-1`}
+                              >
+                                <Globe className="w-3 h-3" />
+                                Proxy: {item.proxyTarget}
+                              </span>
+                            )}
                           </div>
                         </div>
-                        <div className="flex gap-2 flex-shrink-0 justify-center sm:justify-end">
+                        <div className="flex gap-2 flex-shrink-0">
                           <button
                             onClick={() => useHistoryItem(item)}
-                            className="p-2 text-blue-300 hover:text-white hover:bg-blue-500/20 rounded-lg transition-all duration-300"
+                            className={`p-3 ${theme.button.historyAction} rounded-xl transition-all duration-300`}
                             title="Use this request"
                           >
-                            <Send size={16} />
+                            <Send size={18} />
                           </button>
                           <button
                             onClick={() => removeHistoryItem(item.id)}
-                            className="p-2 text-red-300 hover:text-white hover:bg-red-500/20 rounded-lg transition-all duration-300"
+                            className="p-3 text-red-600 hover:text-white hover:bg-red-600 rounded-xl transition-all duration-300"
                             title="Remove from history"
                           >
-                            <Trash2 size={16} />
+                            <Trash2 size={18} />
                           </button>
                         </div>
                       </div>

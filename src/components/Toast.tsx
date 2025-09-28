@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { CheckCircle, XCircle, X } from "lucide-react";
+import { useTheme } from "../contexts/ThemeContext";
 
 interface ToastProps {
   message: string;
@@ -9,6 +10,7 @@ interface ToastProps {
 }
 
 const Toast = ({ message, type, onClose, duration = 3000 }: ToastProps) => {
+  const { isDark } = useTheme();
   const [isVisible, setIsVisible] = useState(true);
 
   useEffect(() => {
@@ -32,29 +34,52 @@ const Toast = ({ message, type, onClose, duration = 3000 }: ToastProps) => {
       }`}
     >
       <div
-        className={`glass flex items-center gap-3 sm:gap-4 px-4 sm:px-6 py-3 sm:py-4 rounded-xl sm:rounded-2xl shadow-2xl border max-w-xs sm:max-w-sm ${
-          type === "success" ? "border-green-500/30" : "border-red-500/30"
+        className={`flex items-center gap-3 sm:gap-4 px-4 sm:px-6 py-3 sm:py-4 rounded-xl sm:rounded-2xl shadow-2xl border max-w-xs sm:max-w-sm transition-colors duration-300 ${
+          isDark ? "bg-slate-800/90" : "bg-white/90"
+        } ${
+          type === "success"
+            ? isDark
+              ? "border-emerald-500/30"
+              : "border-emerald-200"
+            : isDark
+            ? "border-amber-500/30"
+            : "border-amber-200"
         }`}
       >
         {type === "success" ? (
           <CheckCircle
             size={20}
-            className="text-green-400 flex-shrink-0 sm:w-6 sm:h-6"
+            className={`flex-shrink-0 sm:w-6 sm:h-6 ${
+              isDark ? "text-emerald-400" : "text-emerald-600"
+            }`}
           />
         ) : (
           <XCircle
             size={20}
-            className="text-red-400 flex-shrink-0 sm:w-6 sm:h-6"
+            className={`flex-shrink-0 sm:w-6 sm:h-6 ${
+              isDark ? "text-amber-400" : "text-amber-600"
+            }`}
           />
         )}
-        <span className="text-white font-medium text-sm sm:text-base flex-1 min-w-0">
+        <span
+          className={`font-medium text-sm sm:text-base flex-1 min-w-0 ${
+            isDark ? "text-slate-100" : "text-slate-800"
+          }`}
+        >
           {message}
         </span>
         <button
           onClick={handleClose}
-          className="ml-2 p-1.5 sm:p-2 hover:bg-white/10 rounded-lg sm:rounded-xl transition-all duration-300 flex-shrink-0"
+          className={`ml-2 p-1.5 sm:p-2 rounded-lg sm:rounded-xl transition-all duration-300 flex-shrink-0 ${
+            isDark ? "hover:bg-slate-700/50" : "hover:bg-slate-100"
+          }`}
         >
-          <X size={16} className="text-white sm:w-4 sm:h-4" />
+          <X
+            size={16}
+            className={`sm:w-4 sm:h-4 ${
+              isDark ? "text-slate-200" : "text-slate-600"
+            }`}
+          />
         </button>
       </div>
     </div>
