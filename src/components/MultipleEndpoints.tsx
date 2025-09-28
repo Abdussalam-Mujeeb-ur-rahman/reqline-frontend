@@ -409,6 +409,126 @@ const MultipleEndpoints = () => {
     setToast({ message: "Test suite deleted", type: "success" });
   };
 
+  // Direct localhost request function for client-side proxy
+  const makeDirectLocalhostRequest = async (reqline: string, proxyTarget: string) => {
+    try {
+      // Parse the reqline to extract method, URL, headers, body, and query
+      const lines = reqline.split('\n').map(line => line.trim()).filter(line => line);
+      
+      let method = 'GET';
+      let url = '';
+      const headers: Record<string, string> = {};
+      let body: any = null;
+      const query: Record<string, string> = {};
+
+      for (const line of lines) {
+        if (line.startsWith('HTTP ')) {
+          method = line.split(' ')[1];
+        } else if (line.startsWith('URL ')) {
+          url = line.substring(4).trim();
+        } else if (line.startsWith('HEADERS ')) {
+          try {
+            const headersStr = line.substring(8).trim();
+            const parsedHeaders = JSON.parse(headersStr);
+            Object.assign(headers, parsedHeaders);
+          } catch (e) {
+            console.warn('Failed to parse headers:', e);
+          }
+        } else if (line.startsWith('BODY ')) {
+          try {
+            const bodyStr = line.substring(5).trim();
+            body = JSON.parse(bodyStr);
+          } catch (e) {
+            console.warn('Failed to parse body:', e);
+            body = line.substring(5).trim();
+          }
+        } else if (line.startsWith('QUERY ')) {
+          try {
+            const queryStr = line.substring(6).trim();
+            const parsedQuery = JSON.parse(queryStr);
+            Object.assign(query, parsedQuery);
+          } catch (e) {
+            console.warn('Failed to parse query:', e);
+          }
+        }
+      }
+
+      if (!url) {
+        throw new Error('No URL found in reqline');
+      }
+
+      // Transform URL to use proxy target
+      const originalUrl = url;
+      const urlPath = new URL(originalUrl).pathname + new URL(originalUrl).search;
+      const targetUrl = proxyTarget + urlPath;
+      const queryString = new URLSearchParams(query).toString();
+      const finalUrl = queryString ? `${targetUrl}?${queryString}` : targetUrl;
+
+      console.log('Making direct localhost request:', {
+        method,
+        finalUrl,
+        headers,
+        body
+      });
+
+      const response = await fetch(finalUrl, {
+        method,
+        headers: {
+          'Content-Type': 'application/json',
+          ...headers,
+        },
+        body: body ? JSON.stringify(body) : undefined,
+      });
+
+      const responseData = await response.json();
+
+      // Format response to match ApiResponse structure
+      const formattedResponse: ApiResponse = {
+        request: {
+          query,
+          body: body || {},
+          headers,
+          full_url: finalUrl,
+        },
+        response: {
+          http_status: response.status,
+          duration: 0, // We can't measure this easily in client-side
+          request_start_timestamp: Date.now(),
+          request_stop_timestamp: Date.now(),
+          response_data: responseData,
+        },
+      };
+
+      return { data: formattedResponse };
+    } catch (error: any) {
+      console.error("Direct localhost request failed:", error);
+      
+      // Check for CORS errors
+      if (
+        error.message.includes("CORS") ||
+        error.message.includes("Access-Control-Allow-Origin")
+      ) {
+        throw new Error(
+          `CORS Error: Your local server at ${proxyTarget} needs to allow requests from this domain. ` +
+            `Add CORS configuration to allow origin: ${window.location.origin}. ` +
+            `See documentation for setup instructions.`
+        );
+      }
+      
+      // Check for network errors
+      if (
+        error.message.includes("Failed to fetch") ||
+        error.message.includes("NetworkError")
+      ) {
+        throw new Error(
+          `Connection failed to ${proxyTarget}. Make sure your local server is running and accessible.`
+        );
+      }
+      
+      throw new Error(`Connection failed to ${proxyTarget}: ${error.message}`);
+    }
+  };
+
   const executeSingleEndpoint = async (endpointId: string): Promise<void> => {
     if (!currentSuite) return;
 
@@ -423,11 +543,19 @@ const MultipleEndpoints = () => {
     });
 
     try {
-      const response = await axios.post(
-        config.apiUrl,
-        { reqline: endpoint.reqline },
-        { timeout: REQUEST_TIMEOUT }
-      );
+      let response;
+      
+      if (useProxy) {
+        // For localhost requests, make direct client-side requests
+        response = await makeDirectLocalhostRequest(endpoint.reqline, proxyTarget);
+      } else {
+        // For regular requests, use the backend
+        response = await axios.post(
+          config.apiUrl,
+          { reqline: endpoint.reqline },
+          { timeout: REQUEST_TIMEOUT }
+        );
+      }
 
       const sanitizedData = sanitizeResponseData(response.data) as ApiResponse;
       updateEndpointInSuite(endpointId, {
@@ -585,67 +713,59 @@ const MultipleEndpoints = () => {
     });
 
     try {
-      // Determine endpoint and payload based on proxy usage
-      const endpoint = useProxy
-        ? `${config.apiUrl}/proxy`
-        : `${config.apiUrl}/`;
-
-      // Check if this is a FormData request with files
-      const hasFormDataWithFiles =
-        selectedFiles.length > 0 && preparedReqline.includes("FORMDATA");
-
-      if (hasFormDataWithFiles) {
-        // For FormData with files, we need to send the actual files
-        const formData = new FormData();
-        formData.append("reqline", preparedReqline);
-
-        if (useProxy) {
-          formData.append("proxy_target", proxyTarget);
-        }
-
-        // Add files to FormData
-        selectedFiles.forEach((file, index) => {
-          formData.append(`file_${index + 1}`, file);
-        });
-
-        // Add form fields
-        Object.entries(formDataFields).forEach(([key, value]) => {
-          formData.append(key, value);
-        });
-
-        const response = await axios.post(endpoint, formData, {
-          timeout: 30000,
-          headers: {
-            "Content-Type": "multipart/form-data",
-          },
-        });
-
-        setNewEndpointTestResult({
-          isLoading: false,
-          result: response.data,
-          error: null,
-          executedAt: Date.now(),
-        });
+      let response;
+      
+      if (useProxy) {
+        // For localhost requests, make direct client-side requests
+        response = await makeDirectLocalhostRequest(preparedReqline, proxyTarget);
       } else {
-        // Regular JSON request
-        const payload = useProxy
-          ? { reqline: preparedReqline, proxy_target: proxyTarget }
-          : { reqline: preparedReqline };
+        // For regular requests, use the backend
+        const endpoint = `${config.apiUrl}/`;
 
-        const response = await axios.post(endpoint, payload, {
-          timeout: 30000,
-          headers: {
-            "Content-Type": "application/json",
-          },
-        });
+        // Check if this is a FormData request with files
+        const hasFormDataWithFiles =
+          selectedFiles.length > 0 && preparedReqline.includes("FORMDATA");
 
-        setNewEndpointTestResult({
-          isLoading: false,
-          result: response.data,
-          error: null,
-          executedAt: Date.now(),
-        });
+        if (hasFormDataWithFiles) {
+          // For FormData with files, we need to send the actual files
+          const formData = new FormData();
+          formData.append("reqline", preparedReqline);
+
+          // Add files to FormData
+          selectedFiles.forEach((file, index) => {
+            formData.append(`file_${index + 1}`, file);
+          });
+
+          // Add form fields
+          Object.entries(formDataFields).forEach(([key, value]) => {
+            formData.append(key, value);
+          });
+
+          response = await axios.post(endpoint, formData, {
+            timeout: 30000,
+            headers: {
+              "Content-Type": "multipart/form-data",
+            },
+          });
+        } else {
+          // Regular JSON request
+          const payload = { reqline: preparedReqline };
+
+          response = await axios.post(endpoint, payload, {
+            timeout: 30000,
+            headers: {
+              "Content-Type": "application/json",
+            },
+          });
+        }
       }
+
+      setNewEndpointTestResult({
+        isLoading: false,
+        result: response.data,
+        error: null,
+        executedAt: Date.now(),
+      });
 
       setToast({ message: "Test completed successfully!", type: "success" });
     } catch (error: any) {
@@ -733,6 +853,12 @@ const MultipleEndpoints = () => {
           setProxyTarget("http://localhost:8080");
         }
       }
+
+      // Show CORS warning for localhost requests
+      setToast({
+        message: `🌐 Localhost detected! Make sure CORS is configured on your local server to allow origin: ${window.location.origin} or set to "*"`,
+        type: "success",
+      });
     } else {
       // Disable proxy if no localhost detected
       setUseProxy(false);
