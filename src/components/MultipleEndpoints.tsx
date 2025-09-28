@@ -1582,14 +1582,14 @@ const MultipleEndpoints = () => {
                   {/* Test Results for New Endpoint */}
                   {(newEndpointTestResult.result ||
                     newEndpointTestResult.error) && (
-                    <div className="mt-4 sm:mt-6 p-3 sm:p-4 bg-gray-50 rounded-lg border border-gray-200">
-                      <h5 className="text-sm font-semibold text-gray-900 mb-2 flex flex-col sm:flex-row sm:items-center gap-2">
+                    <div className={`mt-4 sm:mt-6 p-3 sm:p-4 ${theme.bg.card} rounded-lg border ${theme.border.primary}`}>
+                      <h5 className={`text-sm font-semibold ${theme.text.primary} mb-2 flex flex-col sm:flex-row sm:items-center gap-2`}>
                         <div className="flex items-center gap-2">
                           <Zap size={14} />
                           <span>Test Result</span>
                         </div>
                         {newEndpointTestResult.executedAt && (
-                          <span className="text-xs text-gray-500 font-normal">
+                          <span className={`text-xs ${theme.text.muted} font-normal`}>
                             (
                             {new Date(
                               newEndpointTestResult.executedAt
@@ -1600,8 +1600,8 @@ const MultipleEndpoints = () => {
                       </h5>
 
                       {newEndpointTestResult.result && (
-                        <div className="bg-green-50 rounded-lg p-2 sm:p-3 border border-green-200 mb-2">
-                          <div className="text-xs text-green-700 mb-1 flex items-center gap-2">
+                        <div className={`${theme.status.success} rounded-lg p-2 sm:p-3 mb-2`}>
+                          <div className={`text-xs ${theme.status.success} mb-1 flex items-center gap-2`}>
                             <CheckCircle size={12} />
                             Success -{" "}
                             {newEndpointTestResult.result.response
@@ -1610,17 +1610,17 @@ const MultipleEndpoints = () => {
 
                           {/* Proxy Information */}
                           {newEndpointTestResult.result.proxy_info && (
-                            <div className="bg-blue-50 rounded-lg p-2 mb-2 border border-blue-200">
-                              <div className="text-xs text-blue-600 mb-1 flex items-center gap-2">
+                            <div className={`${theme.status.info} rounded-lg p-2 mb-2`}>
+                              <div className={`text-xs ${theme.status.info} mb-1 flex items-center gap-2`}>
                                 <Globe className="w-3 h-3" />
                                 Proxy Information
                               </div>
                               <div className="space-y-1 text-xs">
                                 <div className="flex flex-col sm:flex-row sm:items-center gap-1">
-                                  <span className="text-blue-600 font-medium">
+                                  <span className={`${theme.status.info} font-medium`}>
                                     Original:
                                   </span>
-                                  <span className="text-gray-900 font-mono break-all">
+                                  <span className={`${theme.text.primary} font-mono break-all`}>
                                     {
                                       newEndpointTestResult.result.proxy_info
                                         .original_url
@@ -1628,10 +1628,10 @@ const MultipleEndpoints = () => {
                                   </span>
                                 </div>
                                 <div className="flex flex-col sm:flex-row sm:items-center gap-1">
-                                  <span className="text-blue-600 font-medium">
+                                  <span className={`${theme.status.info} font-medium`}>
                                     Proxied:
                                   </span>
-                                  <span className="text-gray-900 font-mono break-all">
+                                  <span className={`${theme.text.primary} font-mono break-all`}>
                                     {
                                       newEndpointTestResult.result.proxy_info
                                         .proxied_url
@@ -1642,7 +1642,7 @@ const MultipleEndpoints = () => {
                             </div>
                           )}
 
-                          <div className="bg-gray-100 rounded-lg p-3 text-xs max-h-32 overflow-y-auto break-words font-mono text-gray-900">
+                          <div className={`${theme.bg.code} rounded-lg p-3 text-xs max-h-32 overflow-y-auto break-words font-mono ${theme.text.primary}`}>
                             {JSON.stringify(
                               newEndpointTestResult.result.response
                                 .response_data,
@@ -1654,12 +1654,12 @@ const MultipleEndpoints = () => {
                       )}
 
                       {newEndpointTestResult.error && (
-                        <div className="bg-red-50 rounded-lg p-2 sm:p-3 border border-red-200">
-                          <div className="text-xs text-red-700 mb-1 flex items-center gap-2">
+                        <div className={`${theme.status.error} rounded-lg p-2 sm:p-3`}>
+                          <div className={`text-xs ${theme.status.error} mb-1 flex items-center gap-2`}>
                             <AlertTriangle size={12} />
                             Error
                           </div>
-                          <div className="bg-gray-100 rounded-lg p-3 text-xs text-red-600 break-words font-mono">
+                          <div className={`${theme.bg.code} rounded-lg p-3 text-xs ${theme.status.error} break-words font-mono`}>
                             {newEndpointTestResult.error}
                           </div>
                         </div>
@@ -1738,7 +1738,7 @@ const MultipleEndpoints = () => {
                                         title: e.target.value,
                                       })
                                     }
-                                    className="bg-gray-50 border border-gray-300 rounded px-2 py-1 text-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-full"
+                                    className={`${theme.bg.input} border ${theme.border.primary} rounded px-2 py-1 ${theme.text.primary} text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-full`}
                                     onBlur={() => setEditingEndpoint(null)}
                                     onKeyDown={(e) =>
                                       e.key === "Enter" &&
@@ -1779,7 +1779,7 @@ const MultipleEndpoints = () => {
                                     description: e.target.value,
                                   })
                                 }
-                                className="bg-gray-50 border border-gray-300 rounded px-2 py-1 text-gray-900 text-xs w-full focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none h-16"
+                                className={`${theme.bg.input} border ${theme.border.primary} rounded px-2 py-1 ${theme.text.primary} text-xs w-full focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none h-16`}
                                 onBlur={() => setEditingEndpoint(null)}
                                 placeholder="Description"
                               />
@@ -1835,19 +1835,19 @@ const MultipleEndpoints = () => {
                         </div>
 
                         {/* Reqline Syntax */}
-                        <div className="bg-gray-50 rounded-lg p-2 sm:p-3 border border-gray-200">
-                          <div className="text-xs text-blue-600 mb-1">
+                        <div className={`${theme.bg.card} rounded-lg p-2 sm:p-3 border ${theme.border.primary}`}>
+                          <div className={`text-xs ${theme.status.info} mb-1`}>
                             Reqline Syntax:
                           </div>
-                          <div className="bg-gray-100 rounded-lg p-3 text-xs break-words font-mono text-gray-900">
+                          <div className={`${theme.bg.code} rounded-lg p-3 text-xs break-words font-mono ${theme.text.primary}`}>
                             {endpoint.reqline}
                           </div>
                         </div>
 
                         {/* Results */}
                         {endpoint.result && (
-                          <div className="bg-green-50 rounded-lg p-2 sm:p-3 border border-green-200">
-                            <div className="text-xs text-green-700 mb-1 flex flex-col sm:flex-row sm:items-center gap-2">
+                          <div className={`${theme.status.success} rounded-lg p-2 sm:p-3`}>
+                            <div className={`text-xs ${theme.status.success} mb-1 flex flex-col sm:flex-row sm:items-center gap-2`}>
                               <div className="flex items-center gap-2">
                                 <CheckCircle size={12} />
                                 <span>
@@ -1856,7 +1856,7 @@ const MultipleEndpoints = () => {
                                 </span>
                               </div>
                               {endpoint.executedAt && (
-                                <span className="text-gray-500">
+                                <span className={theme.text.muted}>
                                   (
                                   {new Date(
                                     endpoint.executedAt
@@ -1865,7 +1865,7 @@ const MultipleEndpoints = () => {
                                 </span>
                               )}
                             </div>
-                            <div className="bg-gray-100 rounded-lg p-3 text-xs max-h-32 overflow-y-auto break-words font-mono text-gray-900">
+                            <div className={`${theme.bg.code} rounded-lg p-3 text-xs max-h-32 overflow-y-auto break-words font-mono ${theme.text.primary}`}>
                               {JSON.stringify(
                                 endpoint.result.response.response_data,
                                 null,
@@ -1876,14 +1876,14 @@ const MultipleEndpoints = () => {
                         )}
 
                         {endpoint.error && (
-                          <div className="bg-red-50 rounded-lg p-2 sm:p-3 border border-red-200">
-                            <div className="text-xs text-red-700 mb-1 flex flex-col sm:flex-row sm:items-center gap-2">
+                          <div className={`${theme.status.error} rounded-lg p-2 sm:p-3`}>
+                            <div className={`text-xs ${theme.status.error} mb-1 flex flex-col sm:flex-row sm:items-center gap-2`}>
                               <div className="flex items-center gap-2">
                                 <AlertTriangle size={12} />
                                 <span>Error</span>
                               </div>
                               {endpoint.executedAt && (
-                                <span className="text-gray-500">
+                                <span className={theme.text.muted}>
                                   (
                                   {new Date(
                                     endpoint.executedAt
@@ -1892,7 +1892,7 @@ const MultipleEndpoints = () => {
                                 </span>
                               )}
                             </div>
-                            <div className="bg-gray-100 rounded-lg p-3 text-xs text-red-600 break-words font-mono">
+                            <div className={`${theme.bg.code} rounded-lg p-3 text-xs ${theme.status.error} break-words font-mono`}>
                               {endpoint.error}
                             </div>
                           </div>
@@ -1928,11 +1928,11 @@ const MultipleEndpoints = () => {
                   {testSuites.map((suite) => (
                     <div
                       key={suite.id}
-                      className="bg-gray-50 rounded-lg p-3 border border-gray-200 hover:bg-gray-100 transition-all duration-300"
+                      className={`${theme.bg.card} rounded-lg p-3 border ${theme.border.primary} hover:${theme.bg.secondary} transition-all duration-300`}
                     >
                       <div className="flex flex-col sm:flex-row sm:items-center gap-3">
                         <div className="flex-1 min-w-0">
-                          <h5 className="font-semibold text-gray-900 text-sm mb-1 truncate">
+                          <h5 className={`font-semibold ${theme.text.primary} text-sm mb-1 truncate`}>
                             {suite.title}
                           </h5>
                           <p
@@ -2054,21 +2054,21 @@ const MultipleEndpoints = () => {
                     {vaultItems.map((item) => (
                       <div
                         key={item.id}
-                        className="bg-gray-50 rounded-lg p-3 border border-gray-200 hover:bg-gray-100 transition-all duration-300"
+                        className={`${theme.bg.card} rounded-lg p-3 border ${theme.border.primary} hover:${theme.bg.secondary} transition-all duration-300`}
                       >
                         <div className="flex flex-col sm:flex-row sm:items-center gap-3">
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 mb-1">
                               <Key className="w-4 h-4 text-blue-600" />
-                              <h5 className="font-semibold text-gray-900 text-sm truncate">
+                              <h5 className={`font-semibold ${theme.text.primary} text-sm truncate`}>
                                 {item.name}
                               </h5>
                             </div>
-                            <div className="bg-gray-100 rounded-lg p-3 text-xs max-h-16 overflow-y-auto break-words font-mono text-gray-900">
+                            <div className={`${theme.bg.code} rounded-lg p-3 text-xs max-h-16 overflow-y-auto break-words font-mono ${theme.text.primary}`}>
                               {item.value}
                             </div>
                             <div className="flex flex-wrap items-center gap-2 mt-2">
-                              <span className="text-xs text-gray-500">
+                              <span className={`text-xs ${theme.text.muted}`}>
                                 {new Date(item.createdAt).toLocaleDateString()}
                               </span>
                             </div>
