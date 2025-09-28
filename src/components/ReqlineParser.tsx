@@ -324,6 +324,99 @@ const ReqlineParser = () => {
     setReqline(value);
   };
 
+  // Function to make direct requests to localhost (client-side proxy)
+  const makeDirectLocalhostRequest = async (reqline: string, proxyTarget: string) => {
+    try {
+      // Parse the reqline to extract request details
+      const parts = reqline.split(' | ');
+      const method = parts[0].replace('HTTP ', '').toUpperCase();
+      
+      let url = '';
+      let headers: Record<string, string> = {};
+      let body: any = null;
+      let query: Record<string, any> = {};
+
+      // Parse each part of the reqline
+      for (const part of parts) {
+        if (part.startsWith('URL ')) {
+          url = part.replace('URL ', '');
+        } else if (part.startsWith('HEADERS ')) {
+          try {
+            headers = JSON.parse(part.replace('HEADERS ', ''));
+          } catch (e) {
+            console.warn('Invalid headers format:', part);
+          }
+        } else if (part.startsWith('BODY ')) {
+          try {
+            body = JSON.parse(part.replace('BODY ', ''));
+          } catch (e) {
+            body = part.replace('BODY ', '');
+          }
+        } else if (part.startsWith('QUERY ')) {
+          try {
+            query = JSON.parse(part.replace('QUERY ', ''));
+          } catch (e) {
+            console.warn('Invalid query format:', part);
+          }
+        }
+      }
+
+      // Replace the original URL with the proxy target
+      const originalUrl = url;
+      const urlPath = new URL(originalUrl).pathname + new URL(originalUrl).search;
+      const targetUrl = proxyTarget + urlPath;
+
+      // Add query parameters if any
+      const queryString = new URLSearchParams(query).toString();
+      const finalUrl = queryString ? `${targetUrl}?${queryString}` : targetUrl;
+
+      console.log('🌐 Direct request details:');
+      console.log('  - method:', method);
+      console.log('  - finalUrl:', finalUrl);
+      console.log('  - headers:', headers);
+      console.log('  - body:', body);
+
+      // Make the direct request
+      const response = await fetch(finalUrl, {
+        method,
+        headers: {
+          'Content-Type': 'application/json',
+          ...headers,
+        },
+        body: body ? JSON.stringify(body) : undefined,
+      });
+
+      const responseData = await response.json();
+
+      // Format response to match the expected ApiResponse structure
+      const formattedResponse = {
+        request: {
+          query: query,
+          body: body || {},
+          headers: headers,
+          full_url: finalUrl,
+        },
+        response: {
+          http_status: response.status,
+          duration: 0, // We can't measure this easily in client-side
+          request_start_timestamp: Date.now(),
+          request_stop_timestamp: Date.now(),
+          response_data: responseData,
+        },
+        proxy_info: {
+          original_url: originalUrl,
+          proxy_target: proxyTarget,
+          proxied_url: finalUrl,
+        },
+      };
+
+      return { data: formattedResponse };
+    } catch (error: any) {
+      console.error('Direct localhost request failed:', error);
+      throw new Error(`Connection failed to ${proxyTarget}: ${error.message}`);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -350,60 +443,58 @@ const ReqlineParser = () => {
     setResult(null);
 
     try {
-      // Determine endpoint and payload based on proxy usage
-      const endpoint = useProxy
-        ? `${config.apiUrl}/proxy`
-        : `${config.apiUrl}/`;
-
       console.log("🚀 Making request with:");
       console.log("  - useProxy:", useProxy);
       console.log("  - proxyTarget:", proxyTarget);
-      console.log("  - endpoint:", endpoint);
       console.log("  - preparedReqline:", preparedReqline);
-
-      // Check if this is a FormData request with files
-      const hasFormDataWithFiles =
-        selectedFiles.length > 0 && preparedReqline.includes("FORMDATA");
 
       let response;
 
-      if (hasFormDataWithFiles) {
-        // For FormData with files, we need to send the actual files
-        const formData = new FormData();
-        formData.append("reqline", preparedReqline);
-
-        if (useProxy) {
-          formData.append("proxy_target", proxyTarget);
-        }
-
-        // Add files to FormData
-        selectedFiles.forEach((file, index) => {
-          formData.append(`file_${index + 1}`, file);
-        });
-
-        // Add form fields
-        Object.entries(formDataFields).forEach(([key, value]) => {
-          formData.append(key, value);
-        });
-
-        response = await axios.post(endpoint, formData, {
-          timeout: REQUEST_TIMEOUT,
-          headers: {
-            "Content-Type": "multipart/form-data",
-          },
-        });
+      if (useProxy) {
+        // For localhost requests, make direct client-side requests
+        console.log("🌐 Making direct client-side request to localhost");
+        response = await makeDirectLocalhostRequest(preparedReqline, proxyTarget);
       } else {
-        // Regular JSON request
-        const payload = useProxy
-          ? { reqline: preparedReqline, proxy_target: proxyTarget }
-          : { reqline: preparedReqline };
+        // For regular requests, use the backend
+        const endpoint = `${config.apiUrl}/`;
+        console.log("  - endpoint:", endpoint);
 
-        response = await axios.post(endpoint, payload, {
-          timeout: REQUEST_TIMEOUT,
-          headers: {
-            "Content-Type": "application/json",
-          },
-        });
+        // Check if this is a FormData request with files
+        const hasFormDataWithFiles =
+          selectedFiles.length > 0 && preparedReqline.includes("FORMDATA");
+
+        if (hasFormDataWithFiles) {
+          // For FormData with files, we need to send the actual files
+          const formData = new FormData();
+          formData.append("reqline", preparedReqline);
+
+          // Add files to FormData
+          selectedFiles.forEach((file, index) => {
+            formData.append(`file_${index + 1}`, file);
+          });
+
+          // Add form fields
+          Object.entries(formDataFields).forEach(([key, value]) => {
+            formData.append(key, value);
+          });
+
+          response = await axios.post(endpoint, formData, {
+            timeout: REQUEST_TIMEOUT,
+            headers: {
+              "Content-Type": "multipart/form-data",
+            },
+          });
+        } else {
+          // Regular JSON request
+          const payload = { reqline: preparedReqline };
+
+          response = await axios.post(endpoint, payload, {
+            timeout: REQUEST_TIMEOUT,
+            headers: {
+              "Content-Type": "application/json",
+            },
+          });
+        }
       }
 
       // Sanitize response data
