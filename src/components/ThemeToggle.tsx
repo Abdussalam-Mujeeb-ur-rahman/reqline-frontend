@@ -26,7 +26,7 @@ const ThemeToggle: React.FC = () => {
             absolute top-0.5 w-5 h-5 rounded-full transition-all duration-300 ease-in-out
             flex items-center justify-center
             ${
-              isDark ? "bg-slate-900 translate-x-6" : "bg-white translate-x-0.5"
+              isDark ? "bg-slate-900 translate-x-6" : "bg-slate-50 translate-x-0.5"
             }
           `}
       >

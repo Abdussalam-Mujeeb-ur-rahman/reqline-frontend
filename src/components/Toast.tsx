@@ -35,7 +35,7 @@ const Toast = ({ message, type, onClose, duration = 3000 }: ToastProps) => {
     >
       <div
         className={`flex items-center gap-3 sm:gap-4 px-4 sm:px-6 py-3 sm:py-4 rounded-xl sm:rounded-2xl shadow-2xl border max-w-xs sm:max-w-sm transition-colors duration-300 ${
-          isDark ? "bg-slate-800/90" : "bg-white/90"
+          isDark ? "bg-slate-800/90" : "bg-slate-50/90"
         } ${
           type === "success"
             ? isDark
@@ -71,7 +71,7 @@ const Toast = ({ message, type, onClose, duration = 3000 }: ToastProps) => {
         <button
           onClick={handleClose}
           className={`ml-2 p-1.5 sm:p-2 rounded-lg sm:rounded-xl transition-all duration-300 flex-shrink-0 ${
-            isDark ? "hover:bg-slate-700/50" : "hover:bg-slate-100"
+            isDark ? "hover:bg-slate-700/50" : "hover:bg-slate-200"
           }`}
         >
           <X

@@ -71,7 +71,7 @@ const ProxyCard: React.FC<ProxyCardProps> = ({
         <p className={`${theme.text.muted} text-sm`}>
           Proxy allows testing localhost APIs from deployed app. Make sure your
           local server is running and CORS is configured to allow origin:{" "}
-          <code className="bg-gray-100 dark:bg-gray-800 px-1 py-0.5 rounded text-xs">
+          <code className={`${theme.bg.code} px-1 py-0.5 rounded text-xs`}>
             {window.location.origin}
           </code>
         </p>

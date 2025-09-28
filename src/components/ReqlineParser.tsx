@@ -859,7 +859,7 @@ const ReqlineParser = () => {
             className={`flex rounded-2xl p-1 border transition-colors duration-300 overflow-x-auto ${
               isDark
                 ? "bg-slate-800 border-slate-700"
-                : "bg-slate-100 border-slate-200"
+                : `${theme.bg.secondary} ${theme.border.primary}`
             }`}
           >
             <button

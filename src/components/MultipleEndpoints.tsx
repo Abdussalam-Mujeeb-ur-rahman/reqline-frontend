@@ -929,15 +929,15 @@ const MultipleEndpoints = () => {
   const getStatusColor = (status: EndpointTest["status"]) => {
     switch (status) {
       case "pending":
-        return "text-gray-500 bg-gray-100";
+        return `${theme.text.muted} ${theme.bg.secondary}`;
       case "running":
-        return "text-blue-600 bg-blue-100";
+        return `${theme.status.info}`;
       case "completed":
-        return "text-green-600 bg-green-100";
+        return `${theme.status.success}`;
       case "failed":
-        return "text-red-600 bg-red-100";
+        return `${theme.status.error}`;
       default:
-        return "text-gray-500 bg-gray-100";
+        return `${theme.text.muted} ${theme.bg.secondary}`;
     }
   };
 
@@ -1100,7 +1100,7 @@ const MultipleEndpoints = () => {
             className={`flex rounded-2xl p-1 border transition-colors duration-300 ${
               isDark
                 ? "bg-slate-800 border-slate-700"
-                : "bg-slate-100 border-slate-200"
+                : `${theme.bg.secondary} ${theme.border.primary}`
             }`}
           >
             <button
