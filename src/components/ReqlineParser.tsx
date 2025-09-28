@@ -222,45 +222,32 @@ const ReqlineParser = () => {
 
   // Auto-detect localhost URLs and enable proxy automatically
   const checkAndEnableProxy = (reqlineText: string) => {
-    console.log("🔍 Checking reqline for localhost:", reqlineText);
-
     const localhostRegex = /localhost:\d+/i;
     const hasLocalhost = localhostRegex.test(reqlineText);
-    console.log("🔍 Has localhost:", hasLocalhost);
 
     if (hasLocalhost) {
       // Always enable proxy when localhost is detected
-      console.log("✅ Enabling proxy mode");
       setUseProxy(true);
 
       // Extract the localhost URL from the reqline - improved regex to handle both http and https
       const urlMatch = reqlineText.match(/URL\s+(https?:\/\/localhost:\d+)/i);
-      console.log("🔍 URL match:", urlMatch);
 
       if (urlMatch) {
-        console.log("✅ Setting proxy target from URL match:", urlMatch[1]);
         setProxyTarget(urlMatch[1]);
       } else {
         // Try to extract just the port number and construct the URL
         const portMatch = reqlineText.match(/localhost:(\d+)/i);
-        console.log("🔍 Port match:", portMatch);
 
         if (portMatch) {
           const constructedUrl = `http://localhost:${portMatch[1]}`;
-          console.log(
-            "✅ Setting proxy target from port match:",
-            constructedUrl
-          );
           setProxyTarget(constructedUrl);
         } else {
           // Default to common localhost port
-          console.log("⚠️ Using default proxy target");
           setProxyTarget("http://localhost:8080");
         }
       }
     } else {
       // Disable proxy if no localhost detected
-      console.log("❌ Disabling proxy mode");
       setUseProxy(false);
     }
   };
@@ -325,62 +312,66 @@ const ReqlineParser = () => {
   };
 
   // Function to make direct requests to localhost (client-side proxy)
-  const makeDirectLocalhostRequest = async (reqline: string, proxyTarget: string) => {
+  const makeDirectLocalhostRequest = async (
+    reqline: string,
+    proxyTarget: string
+  ) => {
     try {
       // Parse the reqline to extract request details
-      const parts = reqline.split(' | ');
-      const method = parts[0].replace('HTTP ', '').toUpperCase();
-      
-      let url = '';
+      const parts = reqline.split(" | ");
+      const method = parts[0].replace("HTTP ", "").toUpperCase();
+
+      let url = "";
       let headers: Record<string, string> = {};
       let body: any = null;
       let query: Record<string, any> = {};
 
       // Parse each part of the reqline
       for (const part of parts) {
-        if (part.startsWith('URL ')) {
-          url = part.replace('URL ', '');
-        } else if (part.startsWith('HEADERS ')) {
+        if (part.startsWith("URL ")) {
+          url = part.replace("URL ", "");
+        } else if (part.startsWith("HEADERS ")) {
           try {
-            headers = JSON.parse(part.replace('HEADERS ', ''));
+            headers = JSON.parse(part.replace("HEADERS ", ""));
           } catch (e) {
-            console.warn('Invalid headers format:', part);
+            console.warn("Invalid headers format:", part);
           }
-        } else if (part.startsWith('BODY ')) {
+        } else if (part.startsWith("BODY ")) {
           try {
-            body = JSON.parse(part.replace('BODY ', ''));
+            body = JSON.parse(part.replace("BODY ", ""));
           } catch (e) {
-            body = part.replace('BODY ', '');
+            body = part.replace("BODY ", "");
           }
-        } else if (part.startsWith('QUERY ')) {
+        } else if (part.startsWith("QUERY ")) {
           try {
-            query = JSON.parse(part.replace('QUERY ', ''));
+            query = JSON.parse(part.replace("QUERY ", ""));
           } catch (e) {
-            console.warn('Invalid query format:', part);
+            console.warn("Invalid query format:", part);
           }
         }
       }
 
       // Replace the original URL with the proxy target
       const originalUrl = url;
-      const urlPath = new URL(originalUrl).pathname + new URL(originalUrl).search;
+      const urlPath =
+        new URL(originalUrl).pathname + new URL(originalUrl).search;
       const targetUrl = proxyTarget + urlPath;
 
       // Add query parameters if any
       const queryString = new URLSearchParams(query).toString();
       const finalUrl = queryString ? `${targetUrl}?${queryString}` : targetUrl;
 
-      console.log('🌐 Direct request details:');
-      console.log('  - method:', method);
-      console.log('  - finalUrl:', finalUrl);
-      console.log('  - headers:', headers);
-      console.log('  - body:', body);
+      console.log("🌐 Direct request details:");
+      console.log("  - method:", method);
+      console.log("  - finalUrl:", finalUrl);
+      console.log("  - headers:", headers);
+      console.log("  - body:", body);
 
       // Make the direct request
       const response = await fetch(finalUrl, {
         method,
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
           ...headers,
         },
         body: body ? JSON.stringify(body) : undefined,
@@ -412,7 +403,7 @@ const ReqlineParser = () => {
 
       return { data: formattedResponse };
     } catch (error: any) {
-      console.error('Direct localhost request failed:', error);
+      console.error("Direct localhost request failed:", error);
       throw new Error(`Connection failed to ${proxyTarget}: ${error.message}`);
     }
   };
@@ -443,21 +434,17 @@ const ReqlineParser = () => {
     setResult(null);
 
     try {
-      console.log("🚀 Making request with:");
-      console.log("  - useProxy:", useProxy);
-      console.log("  - proxyTarget:", proxyTarget);
-      console.log("  - preparedReqline:", preparedReqline);
-
       let response;
 
       if (useProxy) {
         // For localhost requests, make direct client-side requests
-        console.log("🌐 Making direct client-side request to localhost");
-        response = await makeDirectLocalhostRequest(preparedReqline, proxyTarget);
+        response = await makeDirectLocalhostRequest(
+          preparedReqline,
+          proxyTarget
+        );
       } else {
         // For regular requests, use the backend
         const endpoint = `${config.apiUrl}/`;
-        console.log("  - endpoint:", endpoint);
 
         // Check if this is a FormData request with files
         const hasFormDataWithFiles =
