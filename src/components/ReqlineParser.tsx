@@ -177,6 +177,14 @@ const ReqlineParser = () => {
       icon: <Globe className="w-4 h-4 sm:w-5 sm:h-5 text-white" />,
       note: "Auto-detects localhost! Configure CORS on your local server to allow this domain.",
     },
+    {
+      name: "CORS Setup Guide",
+      description: "Quick CORS configuration for popular frameworks",
+      reqline: "// CORS Setup Examples",
+      color: "from-yellow-500 to-yellow-600",
+      icon: <Key className="w-4 h-4 sm:w-5 sm:h-5 text-white" />,
+      note: "Express: app.use(cors({origin: 'https://reqline-frontend.vercel.app'})) | FastAPI: add CORSMiddleware | Spring: @CrossOrigin",
+    },
   ];
 
   // Check if a keyword is present in the current input
