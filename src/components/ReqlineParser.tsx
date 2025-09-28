@@ -245,6 +245,12 @@ const ReqlineParser = () => {
           setProxyTarget("http://localhost:8080");
         }
       }
+
+      // Show CORS warning for localhost requests
+      setToast({
+        message: `🌐 Localhost detected! Make sure CORS is configured on your local server to allow origin: ${window.location.origin} or set to "*"`,
+        type: "success",
+      });
     } else {
       // Disable proxy if no localhost detected
       setUseProxy(false);
@@ -403,23 +409,29 @@ const ReqlineParser = () => {
       return { data: formattedResponse };
     } catch (error: any) {
       console.error("Direct localhost request failed:", error);
-      
+
       // Check for CORS errors
-      if (error.message.includes('CORS') || error.message.includes('Access-Control-Allow-Origin')) {
+      if (
+        error.message.includes("CORS") ||
+        error.message.includes("Access-Control-Allow-Origin")
+      ) {
         throw new Error(
           `CORS Error: Your local server at ${proxyTarget} needs to allow requests from this domain. ` +
-          `Add CORS configuration to allow origin: ${window.location.origin}. ` +
-          `See documentation for setup instructions.`
+            `Add CORS configuration to allow origin: ${window.location.origin}. ` +
+            `See documentation for setup instructions.`
         );
       }
-      
+
       // Check for network errors
-      if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
+      if (
+        error.message.includes("Failed to fetch") ||
+        error.message.includes("NetworkError")
+      ) {
         throw new Error(
           `Connection failed to ${proxyTarget}. Make sure your local server is running and accessible.`
         );
       }
-      
+
       throw new Error(`Connection failed to ${proxyTarget}: ${error.message}`);
     }
   };
