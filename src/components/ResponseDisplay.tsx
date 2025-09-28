@@ -1,7 +1,7 @@
 import React from "react";
 import { Copy, CheckCircle, Clock, Globe, Download } from "lucide-react";
 import { useThemeClasses } from "../hooks/useThemeClasses";
-import { ApiResponse } from "../types";
+import type { ApiResponse } from "../types";
 
 interface ResponseDisplayProps {
   result: ApiResponse | null;

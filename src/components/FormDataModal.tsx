@@ -1,7 +1,7 @@
 import React from "react";
 import { Upload } from "lucide-react";
 import { useThemeClasses } from "../hooks/useThemeClasses";
-import { FileUploadState, ToastMessage } from "../types";
+import type { ToastMessage } from "../types";
 
 interface FormDataModalProps {
   selectedFiles: File[];

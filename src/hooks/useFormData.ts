@@ -1,5 +1,5 @@
 import { useState, useCallback } from "react";
-import { FormDataField } from "../types";
+import type { FormDataField } from "../types";
 
 export const useFormData = () => {
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);

@@ -1,7 +1,7 @@
 import React from "react";
 import { Code } from "lucide-react";
 import { useThemeClasses } from "../hooks/useThemeClasses";
-import { Keyword } from "../types";
+import type { Keyword } from "../types";
 
 interface KeywordButtonsProps {
   keywords: Keyword[];

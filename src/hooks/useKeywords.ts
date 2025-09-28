@@ -1,5 +1,5 @@
 import { useCallback } from "react";
-import { Keyword } from "../types";
+import type { Keyword } from "../types";
 
 export const useKeywords = () => {
   const keywords: Keyword[] = [
@@ -39,8 +39,8 @@ export const useKeywords = () => {
       template: string,
       isFileUpload: boolean,
       currentReqline: string,
-      baseUrl?: string,
       onUpdateReqline: (newReqline: string) => void,
+      baseUrl?: string,
       onAddFormDataField?: (key: string, value: string) => void
     ) => {
       if (isFileUpload) {

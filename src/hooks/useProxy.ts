@@ -1,5 +1,4 @@
 import { useState, useCallback } from "react";
-import { ProxyState } from "../types";
 
 export const useProxy = (initialProxyTarget = "http://localhost:8080") => {
   const [useProxy, setUseProxy] = useState(false);
