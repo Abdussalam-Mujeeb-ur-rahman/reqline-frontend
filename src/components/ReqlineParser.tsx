@@ -228,13 +228,19 @@ const ReqlineParser = () => {
     if (hasLocalhost) {
       // Always enable proxy when localhost is detected
       setUseProxy(true);
-      // Extract the localhost URL from the reqline
+      // Extract the localhost URL from the reqline - improved regex to handle both http and https
       const urlMatch = reqlineText.match(/URL\s+(https?:\/\/localhost:\d+)/i);
       if (urlMatch) {
         setProxyTarget(urlMatch[1]);
       } else {
-        // Default to common localhost port
-        setProxyTarget("http://localhost:8080");
+        // Try to extract just the port number and construct the URL
+        const portMatch = reqlineText.match(/localhost:(\d+)/i);
+        if (portMatch) {
+          setProxyTarget(`http://localhost:${portMatch[1]}`);
+        } else {
+          // Default to common localhost port
+          setProxyTarget("http://localhost:8080");
+        }
       }
     } else {
       // Disable proxy if no localhost detected
