@@ -24,6 +24,7 @@ import {
 import axios from "axios";
 import LoadingSpinner from "./LoadingSpinner";
 import Toast from "./Toast";
+import ProxyCard from "./ProxyCard";
 import { useTheme } from "../contexts/ThemeContext";
 import { useThemeClasses } from "../hooks/useThemeClasses";
 import config from "../../config";
@@ -1529,61 +1530,12 @@ const MultipleEndpoints = () => {
 
                     {/* Proxy Configuration */}
                     {useProxy && (
-                      <div className="bg-blue-50 rounded-lg p-3 sm:p-4 border border-blue-200">
-                        <div className="flex items-center gap-2 mb-3">
-                          <Globe className="w-4 h-4 text-blue-600" />
-                          <span className="text-sm font-medium text-blue-600">
-                            🚀 Proxy Active (Localhost Detected)
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() => setUseProxy(false)}
-                            className="ml-auto text-xs text-blue-500 hover:text-blue-700 underline"
-                          >
-                            Disable
-                          </button>
-                        </div>
-                        <div className="space-y-2">
-                          <div className="flex gap-2">
-                            <input
-                              type="text"
-                              value={proxyTarget}
-                              onChange={(e) => setProxyTarget(e.target.value)}
-                              placeholder="http://localhost:8080"
-                              className={`flex-1 ${theme.bg.input} ${theme.border.primary} rounded-lg ${theme.text.primary} ${theme.text.placeholder} text-xs sm:text-sm p-2 sm:p-3 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent`}
-                            />
-                            <button
-                              type="button"
-                              onClick={() => {
-                                if (proxyTarget.trim()) {
-                                  const item: VaultItem = {
-                                    id: Date.now().toString(),
-                                    name: `Proxy: ${proxyTarget}`,
-                                    value: proxyTarget,
-                                    createdAt: Date.now(),
-                                    updatedAt: Date.now(),
-                                  };
-                                  const updatedItems = [...vaultItems, item];
-                                  setVaultItems(updatedItems);
-                                  saveVaultToStorage(updatedItems);
-                                  setToast({
-                                    message: "Proxy target saved to vault",
-                                    type: "success",
-                                  });
-                                }
-                              }}
-                              className="px-3 py-2 bg-blue-100 text-blue-600 border border-blue-300 rounded-lg hover:bg-blue-200 transition-colors text-xs"
-                              title="Save proxy target to vault"
-                            >
-                              <Save className="w-4 h-4" />
-                            </button>
-                          </div>
-                          <p className="text-xs text-blue-600">
-                            💡 Proxy allows testing localhost APIs from deployed
-                            app. Make sure your local server is running!
-                          </p>
-                        </div>
-                      </div>
+                      <ProxyCard
+                        proxyTarget={proxyTarget}
+                        onDisable={() => setUseProxy(false)}
+                        onTargetChange={setProxyTarget}
+                        className="bg-blue-50 border-blue-200"
+                      />
                     )}
 
                     <div className="flex gap-2 sm:gap-3">

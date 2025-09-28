@@ -25,6 +25,7 @@ import {
 import axios from "axios";
 import LoadingSpinner from "./LoadingSpinner";
 import Toast from "./Toast";
+import ProxyCard from "./ProxyCard";
 import { useTheme } from "../contexts/ThemeContext";
 import { useThemeClasses } from "../hooks/useThemeClasses";
 import config from "../../config";
@@ -1150,61 +1151,12 @@ const ReqlineParser = () => {
 
                   {/* Proxy Configuration */}
                   {useProxy && (
-                    <div className="bg-gradient-to-r from-blue-500/10 to-cyan-500/10 rounded-2xl p-6 border border-blue-500/20">
-                      <div className="flex items-center justify-between mb-4">
-                        <h3 className="text-white font-semibold flex items-center gap-2">
-                          <Globe className="w-5 h-5 text-blue-300" />
-                          🚀 Proxy Active (Localhost Detected)
-                        </h3>
-                        <button
-                          type="button"
-                          onClick={() => setUseProxy(false)}
-                          className="text-blue-400 hover:text-blue-300 text-sm underline"
-                        >
-                          Disable
-                        </button>
-                      </div>
-                      <div className="space-y-4">
-                        <div className="flex gap-3">
-                          <input
-                            type="text"
-                            value={proxyTarget}
-                            onChange={(e) => setProxyTarget(e.target.value)}
-                            placeholder="http://localhost:8080"
-                            className="flex-1 bg-black/40 border border-white/20 rounded-xl text-white placeholder-blue-300 text-sm p-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => {
-                              if (proxyTarget.trim()) {
-                                const item: VaultItem = {
-                                  id: Date.now().toString(),
-                                  name: `Proxy: ${proxyTarget}`,
-                                  value: proxyTarget,
-                                  createdAt: Date.now(),
-                                  updatedAt: Date.now(),
-                                };
-                                const updatedItems = [...vaultItems, item];
-                                setVaultItems(updatedItems);
-                                saveVaultToStorage(updatedItems);
-                                setToast({
-                                  message: "Proxy target saved to vault",
-                                  type: "success",
-                                });
-                              }
-                            }}
-                            className={`px-4 py-3 ${theme.status.info} rounded-xl hover:${theme.bg.secondary} transition-colors text-sm`}
-                            title="Save proxy target to vault"
-                          >
-                            <Save className="w-4 h-4" />
-                          </button>
-                        </div>
-                        <p className="text-blue-300 text-sm">
-                          💡 Proxy allows testing localhost APIs from deployed
-                          app. Make sure your local server is running!
-                        </p>
-                      </div>
-                    </div>
+                    <ProxyCard
+                      proxyTarget={proxyTarget}
+                      onDisable={() => setUseProxy(false)}
+                      onTargetChange={setProxyTarget}
+                      className="bg-gradient-to-r from-blue-500/10 to-cyan-500/10 border-blue-500/20"
+                    />
                   )}
 
                   {/* Action Buttons */}
