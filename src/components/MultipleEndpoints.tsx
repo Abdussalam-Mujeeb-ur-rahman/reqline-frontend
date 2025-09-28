@@ -413,43 +413,36 @@ const MultipleEndpoints = () => {
   // Direct localhost request function for client-side proxy
   const makeDirectLocalhostRequest = async (reqline: string, proxyTarget: string) => {
     try {
-      // Parse the reqline to extract method, URL, headers, body, and query
-      const lines = reqline.split('\n').map(line => line.trim()).filter(line => line);
-      
-      let method = 'GET';
-      let url = '';
-      const headers: Record<string, string> = {};
-      let body: any = null;
-      const query: Record<string, string> = {};
+      // Parse the reqline to extract request details (same logic as ReqlineParser)
+      const parts = reqline.split(" | ");
+      const method = parts[0].replace("HTTP ", "").toUpperCase();
 
-      for (const line of lines) {
-        if (line.startsWith('HTTP ')) {
-          method = line.split(' ')[1];
-        } else if (line.startsWith('URL ')) {
-          url = line.substring(4).trim();
-        } else if (line.startsWith('HEADERS ')) {
+      let url = "";
+      let headers: Record<string, string> = {};
+      let body: any = null;
+      let query: Record<string, any> = {};
+
+      // Parse each part of the reqline
+      for (const part of parts) {
+        if (part.startsWith("URL ")) {
+          url = part.replace("URL ", "");
+        } else if (part.startsWith("HEADERS ")) {
           try {
-            const headersStr = line.substring(8).trim();
-            const parsedHeaders = JSON.parse(headersStr);
-            Object.assign(headers, parsedHeaders);
+            headers = JSON.parse(part.replace("HEADERS ", ""));
           } catch (e) {
-            console.warn('Failed to parse headers:', e);
+            console.warn("Invalid headers format:", part);
           }
-        } else if (line.startsWith('BODY ')) {
+        } else if (part.startsWith("BODY ")) {
           try {
-            const bodyStr = line.substring(5).trim();
-            body = JSON.parse(bodyStr);
+            body = JSON.parse(part.replace("BODY ", ""));
           } catch (e) {
-            console.warn('Failed to parse body:', e);
-            body = line.substring(5).trim();
+            body = part.replace("BODY ", "");
           }
-        } else if (line.startsWith('QUERY ')) {
+        } else if (part.startsWith("QUERY ")) {
           try {
-            const queryStr = line.substring(6).trim();
-            const parsedQuery = JSON.parse(queryStr);
-            Object.assign(query, parsedQuery);
+            query = JSON.parse(part.replace("QUERY ", ""));
           } catch (e) {
-            console.warn('Failed to parse query:', e);
+            console.warn("Invalid query format:", part);
           }
         }
       }
@@ -465,12 +458,11 @@ const MultipleEndpoints = () => {
       const queryString = new URLSearchParams(query).toString();
       const finalUrl = queryString ? `${targetUrl}?${queryString}` : targetUrl;
 
-      console.log('Making direct localhost request:', {
-        method,
-        finalUrl,
-        headers,
-        body
-      });
+      console.log("🌐 Direct request details:");
+      console.log("  - method:", method);
+      console.log("  - finalUrl:", finalUrl);
+      console.log("  - headers:", headers);
+      console.log("  - body:", body);
 
       const response = await fetch(finalUrl, {
         method,
