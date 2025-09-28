@@ -222,28 +222,45 @@ const ReqlineParser = () => {
 
   // Auto-detect localhost URLs and enable proxy automatically
   const checkAndEnableProxy = (reqlineText: string) => {
+    console.log("🔍 Checking reqline for localhost:", reqlineText);
+
     const localhostRegex = /localhost:\d+/i;
     const hasLocalhost = localhostRegex.test(reqlineText);
+    console.log("🔍 Has localhost:", hasLocalhost);
 
     if (hasLocalhost) {
       // Always enable proxy when localhost is detected
+      console.log("✅ Enabling proxy mode");
       setUseProxy(true);
+
       // Extract the localhost URL from the reqline - improved regex to handle both http and https
       const urlMatch = reqlineText.match(/URL\s+(https?:\/\/localhost:\d+)/i);
+      console.log("🔍 URL match:", urlMatch);
+
       if (urlMatch) {
+        console.log("✅ Setting proxy target from URL match:", urlMatch[1]);
         setProxyTarget(urlMatch[1]);
       } else {
         // Try to extract just the port number and construct the URL
         const portMatch = reqlineText.match(/localhost:(\d+)/i);
+        console.log("🔍 Port match:", portMatch);
+
         if (portMatch) {
-          setProxyTarget(`http://localhost:${portMatch[1]}`);
+          const constructedUrl = `http://localhost:${portMatch[1]}`;
+          console.log(
+            "✅ Setting proxy target from port match:",
+            constructedUrl
+          );
+          setProxyTarget(constructedUrl);
         } else {
           // Default to common localhost port
+          console.log("⚠️ Using default proxy target");
           setProxyTarget("http://localhost:8080");
         }
       }
     } else {
       // Disable proxy if no localhost detected
+      console.log("❌ Disabling proxy mode");
       setUseProxy(false);
     }
   };
@@ -337,6 +354,12 @@ const ReqlineParser = () => {
       const endpoint = useProxy
         ? `${config.apiUrl}/proxy`
         : `${config.apiUrl}/`;
+
+      console.log("🚀 Making request with:");
+      console.log("  - useProxy:", useProxy);
+      console.log("  - proxyTarget:", proxyTarget);
+      console.log("  - endpoint:", endpoint);
+      console.log("  - preparedReqline:", preparedReqline);
 
       // Check if this is a FormData request with files
       const hasFormDataWithFiles =
