@@ -410,6 +410,35 @@ const MultipleEndpoints = () => {
     setToast({ message: "Test suite deleted", type: "success" });
   };
 
+  const saveCurrentSuiteToHistory = (): void => {
+    if (!currentSuite || currentSuite.endpoints.length === 0) {
+      setToast({ 
+        message: "No test suite or endpoints to save", 
+        type: "error" 
+      });
+      return;
+    }
+
+    // Check if suite already exists in history
+    const existingSuiteIndex = testSuites.findIndex(suite => suite.id === currentSuite.id);
+    
+    if (existingSuiteIndex >= 0) {
+      // Update existing suite
+      const updatedSuites = testSuites.map((suite, index) =>
+        index === existingSuiteIndex ? { ...currentSuite, updatedAt: Date.now() } : suite
+      );
+      setTestSuites(updatedSuites);
+      saveSuitesToStorage(updatedSuites);
+      setToast({ message: "Test suite updated in history", type: "success" });
+    } else {
+      // Add new suite to history
+      const updatedSuites = [...testSuites, { ...currentSuite, updatedAt: Date.now() }];
+      setTestSuites(updatedSuites);
+      saveSuitesToStorage(updatedSuites);
+      setToast({ message: "Test suite saved to history", type: "success" });
+    }
+  };
+
   // Direct localhost request function for client-side proxy
   const makeDirectLocalhostRequest = async (reqline: string, proxyTarget: string) => {
     try {
@@ -1704,6 +1733,15 @@ const MultipleEndpoints = () => {
                     >
                       <Square size={16} />
                       Stop
+                    </button>
+                    <button
+                      onClick={saveCurrentSuiteToHistory}
+                      className="bg-emerald-600 hover:bg-emerald-700 text-white flex items-center justify-center gap-2 text-xs sm:text-sm px-4 py-2 rounded-lg transition-colors"
+                      title="Save test suite to history"
+                      aria-label="Save test suite to history"
+                    >
+                      <Save size={16} />
+                      Save to History
                     </button>
                   </div>
                 </div>
