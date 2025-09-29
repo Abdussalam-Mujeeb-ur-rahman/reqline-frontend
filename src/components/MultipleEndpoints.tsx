@@ -573,10 +573,10 @@ const MultipleEndpoints = () => {
       } else {
         // For regular requests, use the backend
         response = await axios.post(
-          config.apiUrl,
-          { reqline: endpoint.reqline },
-          { timeout: REQUEST_TIMEOUT }
-        );
+        config.apiUrl,
+        { reqline: endpoint.reqline },
+        { timeout: REQUEST_TIMEOUT }
+      );
       }
 
       const sanitizedData = sanitizeResponseData(response.data) as ApiResponse;
@@ -744,50 +744,50 @@ const MultipleEndpoints = () => {
         // For regular requests, use the backend
         const endpoint = `${config.apiUrl}/`;
 
-        // Check if this is a FormData request with files
-        const hasFormDataWithFiles =
-          selectedFiles.length > 0 && preparedReqline.includes("FORMDATA");
+      // Check if this is a FormData request with files
+      const hasFormDataWithFiles =
+        selectedFiles.length > 0 && preparedReqline.includes("FORMDATA");
 
-        if (hasFormDataWithFiles) {
-          // For FormData with files, we need to send the actual files
-          const formData = new FormData();
-          formData.append("reqline", preparedReqline);
+      if (hasFormDataWithFiles) {
+        // For FormData with files, we need to send the actual files
+        const formData = new FormData();
+        formData.append("reqline", preparedReqline);
 
-          // Add files to FormData
-          selectedFiles.forEach((file, index) => {
-            formData.append(`file_${index + 1}`, file);
-          });
+        // Add files to FormData
+        selectedFiles.forEach((file, index) => {
+          formData.append(`file_${index + 1}`, file);
+        });
 
-          // Add form fields
-          Object.entries(formDataFields).forEach(([key, value]) => {
-            formData.append(key, value);
-          });
+        // Add form fields
+        Object.entries(formDataFields).forEach(([key, value]) => {
+          formData.append(key, value);
+        });
 
           response = await axios.post(endpoint, formData, {
-            timeout: 30000,
-            headers: {
-              "Content-Type": "multipart/form-data",
-            },
-          });
-        } else {
-          // Regular JSON request
+          timeout: 30000,
+          headers: {
+            "Content-Type": "multipart/form-data",
+          },
+        });
+      } else {
+        // Regular JSON request
           const payload = { reqline: preparedReqline };
 
           response = await axios.post(endpoint, payload, {
-            timeout: 30000,
-            headers: {
-              "Content-Type": "application/json",
-            },
-          });
+          timeout: 30000,
+          headers: {
+            "Content-Type": "application/json",
+          },
+        });
         }
       }
 
-      setNewEndpointTestResult({
-        isLoading: false,
-        result: response.data,
-        error: null,
-        executedAt: Date.now(),
-      });
+        setNewEndpointTestResult({
+          isLoading: false,
+          result: response.data,
+          error: null,
+          executedAt: Date.now(),
+        });
 
       setToast({ message: "Test completed successfully!", type: "success" });
     } catch (error: any) {
@@ -870,10 +870,10 @@ const MultipleEndpoints = () => {
         const portMatch = reqlineText.match(/localhost:(\d+)/i);
         if (portMatch) {
           setProxyTarget(`http://localhost:${portMatch[1]}`);
-        } else {
-          // Default to common localhost port
-          setProxyTarget("http://localhost:8080");
-        }
+      } else {
+        // Default to common localhost port
+        setProxyTarget("http://localhost:8080");
+      }
       }
 
       // Show CORS warning for localhost requests
@@ -1766,7 +1766,7 @@ const MultipleEndpoints = () => {
                         <div className="flex flex-col sm:flex-row sm:items-start gap-3 sm:gap-4">
                           <div className="flex-1 min-w-0">
                             <div className="flex flex-wrap items-center gap-2 mb-1">
-                              <h5 className="font-semibold text-gray-900 text-sm sm:text-base truncate">
+                              <h5 className={`font-semibold ${theme.text.primary} text-sm sm:text-base truncate`}>
                                 {editingEndpoint === endpoint.id ? (
                                   <input
                                     type="text"
