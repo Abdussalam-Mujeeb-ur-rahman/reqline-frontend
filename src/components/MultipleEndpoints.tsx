@@ -412,27 +412,34 @@ const MultipleEndpoints = () => {
 
   const saveCurrentSuiteToHistory = (): void => {
     if (!currentSuite || currentSuite.endpoints.length === 0) {
-      setToast({ 
-        message: "No test suite or endpoints to save", 
-        type: "error" 
+      setToast({
+        message: "No test suite or endpoints to save",
+        type: "error",
       });
       return;
     }
 
     // Check if suite already exists in history
-    const existingSuiteIndex = testSuites.findIndex(suite => suite.id === currentSuite.id);
-    
+    const existingSuiteIndex = testSuites.findIndex(
+      (suite) => suite.id === currentSuite.id
+    );
+
     if (existingSuiteIndex >= 0) {
       // Update existing suite
       const updatedSuites = testSuites.map((suite, index) =>
-        index === existingSuiteIndex ? { ...currentSuite, updatedAt: Date.now() } : suite
+        index === existingSuiteIndex
+          ? { ...currentSuite, updatedAt: Date.now() }
+          : suite
       );
       setTestSuites(updatedSuites);
       saveSuitesToStorage(updatedSuites);
       setToast({ message: "Test suite updated in history", type: "success" });
     } else {
       // Add new suite to history
-      const updatedSuites = [...testSuites, { ...currentSuite, updatedAt: Date.now() }];
+      const updatedSuites = [
+        ...testSuites,
+        { ...currentSuite, updatedAt: Date.now() },
+      ];
       setTestSuites(updatedSuites);
       saveSuitesToStorage(updatedSuites);
       setToast({ message: "Test suite saved to history", type: "success" });
@@ -440,7 +447,10 @@ const MultipleEndpoints = () => {
   };
 
   // Direct localhost request function for client-side proxy
-  const makeDirectLocalhostRequest = async (reqline: string, proxyTarget: string) => {
+  const makeDirectLocalhostRequest = async (
+    reqline: string,
+    proxyTarget: string
+  ) => {
     try {
       // Parse the reqline to extract request details (same logic as ReqlineParser)
       const parts = reqline.split(" | ");
@@ -477,12 +487,13 @@ const MultipleEndpoints = () => {
       }
 
       if (!url) {
-        throw new Error('No URL found in reqline');
+        throw new Error("No URL found in reqline");
       }
 
       // Transform URL to use proxy target
       const originalUrl = url;
-      const urlPath = new URL(originalUrl).pathname + new URL(originalUrl).search;
+      const urlPath =
+        new URL(originalUrl).pathname + new URL(originalUrl).search;
       const targetUrl = proxyTarget + urlPath;
       const queryString = new URLSearchParams(query).toString();
       const finalUrl = queryString ? `${targetUrl}?${queryString}` : targetUrl;
@@ -496,7 +507,7 @@ const MultipleEndpoints = () => {
       const response = await fetch(finalUrl, {
         method,
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
           ...headers,
         },
         body: body ? JSON.stringify(body) : undefined,
@@ -524,7 +535,7 @@ const MultipleEndpoints = () => {
       return { data: formattedResponse };
     } catch (error: any) {
       console.error("Direct localhost request failed:", error);
-      
+
       // Check for CORS errors
       if (
         error.message.includes("CORS") ||
@@ -536,7 +547,7 @@ const MultipleEndpoints = () => {
             `See documentation for setup instructions.`
         );
       }
-      
+
       // Check for network errors
       if (
         error.message.includes("Failed to fetch") ||
@@ -546,7 +557,7 @@ const MultipleEndpoints = () => {
           `Connection failed to ${proxyTarget}. Make sure your local server is running and accessible.`
         );
       }
-      
+
       throw new Error(`Connection failed to ${proxyTarget}: ${error.message}`);
     }
   };
@@ -566,17 +577,20 @@ const MultipleEndpoints = () => {
 
     try {
       let response;
-      
+
       if (useProxy) {
         // For localhost requests, make direct client-side requests
-        response = await makeDirectLocalhostRequest(endpoint.reqline, proxyTarget);
+        response = await makeDirectLocalhostRequest(
+          endpoint.reqline,
+          proxyTarget
+        );
       } else {
         // For regular requests, use the backend
         response = await axios.post(
-        config.apiUrl,
-        { reqline: endpoint.reqline },
-        { timeout: REQUEST_TIMEOUT }
-      );
+          config.apiUrl,
+          { reqline: endpoint.reqline },
+          { timeout: REQUEST_TIMEOUT }
+        );
       }
 
       const sanitizedData = sanitizeResponseData(response.data) as ApiResponse;
@@ -736,58 +750,61 @@ const MultipleEndpoints = () => {
 
     try {
       let response;
-      
+
       if (useProxy) {
         // For localhost requests, make direct client-side requests
-        response = await makeDirectLocalhostRequest(preparedReqline, proxyTarget);
+        response = await makeDirectLocalhostRequest(
+          preparedReqline,
+          proxyTarget
+        );
       } else {
         // For regular requests, use the backend
         const endpoint = `${config.apiUrl}/`;
 
-      // Check if this is a FormData request with files
-      const hasFormDataWithFiles =
-        selectedFiles.length > 0 && preparedReqline.includes("FORMDATA");
+        // Check if this is a FormData request with files
+        const hasFormDataWithFiles =
+          selectedFiles.length > 0 && preparedReqline.includes("FORMDATA");
 
-      if (hasFormDataWithFiles) {
-        // For FormData with files, we need to send the actual files
-        const formData = new FormData();
-        formData.append("reqline", preparedReqline);
+        if (hasFormDataWithFiles) {
+          // For FormData with files, we need to send the actual files
+          const formData = new FormData();
+          formData.append("reqline", preparedReqline);
 
-        // Add files to FormData
-        selectedFiles.forEach((file, index) => {
-          formData.append(`file_${index + 1}`, file);
-        });
+          // Add files to FormData
+          selectedFiles.forEach((file, index) => {
+            formData.append(`file_${index + 1}`, file);
+          });
 
-        // Add form fields
-        Object.entries(formDataFields).forEach(([key, value]) => {
-          formData.append(key, value);
-        });
+          // Add form fields
+          Object.entries(formDataFields).forEach(([key, value]) => {
+            formData.append(key, value);
+          });
 
           response = await axios.post(endpoint, formData, {
-          timeout: 30000,
-          headers: {
-            "Content-Type": "multipart/form-data",
-          },
-        });
-      } else {
-        // Regular JSON request
+            timeout: 30000,
+            headers: {
+              "Content-Type": "multipart/form-data",
+            },
+          });
+        } else {
+          // Regular JSON request
           const payload = { reqline: preparedReqline };
 
           response = await axios.post(endpoint, payload, {
-          timeout: 30000,
-          headers: {
-            "Content-Type": "application/json",
-          },
-        });
+            timeout: 30000,
+            headers: {
+              "Content-Type": "application/json",
+            },
+          });
         }
       }
 
-        setNewEndpointTestResult({
-          isLoading: false,
-          result: response.data,
-          error: null,
-          executedAt: Date.now(),
-        });
+      setNewEndpointTestResult({
+        isLoading: false,
+        result: response.data,
+        error: null,
+        executedAt: Date.now(),
+      });
 
       setToast({ message: "Test completed successfully!", type: "success" });
     } catch (error: any) {
@@ -870,10 +887,10 @@ const MultipleEndpoints = () => {
         const portMatch = reqlineText.match(/localhost:(\d+)/i);
         if (portMatch) {
           setProxyTarget(`http://localhost:${portMatch[1]}`);
-      } else {
-        // Default to common localhost port
-        setProxyTarget("http://localhost:8080");
-      }
+        } else {
+          // Default to common localhost port
+          setProxyTarget("http://localhost:8080");
+        }
       }
 
       // Show CORS warning for localhost requests
@@ -1611,14 +1628,20 @@ const MultipleEndpoints = () => {
                   {/* Test Results for New Endpoint */}
                   {(newEndpointTestResult.result ||
                     newEndpointTestResult.error) && (
-                    <div className={`mt-4 sm:mt-6 p-3 sm:p-4 ${theme.bg.card} rounded-lg border ${theme.border.primary}`}>
-                      <h5 className={`text-sm font-semibold ${theme.text.primary} mb-2 flex flex-col sm:flex-row sm:items-center gap-2`}>
+                    <div
+                      className={`mt-4 sm:mt-6 p-3 sm:p-4 ${theme.bg.card} rounded-lg border ${theme.border.primary}`}
+                    >
+                      <h5
+                        className={`text-sm font-semibold ${theme.text.primary} mb-2 flex flex-col sm:flex-row sm:items-center gap-2`}
+                      >
                         <div className="flex items-center gap-2">
                           <Zap size={14} />
                           <span>Test Result</span>
                         </div>
                         {newEndpointTestResult.executedAt && (
-                          <span className={`text-xs ${theme.text.muted} font-normal`}>
+                          <span
+                            className={`text-xs ${theme.text.muted} font-normal`}
+                          >
                             (
                             {new Date(
                               newEndpointTestResult.executedAt
@@ -1629,8 +1652,12 @@ const MultipleEndpoints = () => {
                       </h5>
 
                       {newEndpointTestResult.result && (
-                        <div className={`${theme.status.success} rounded-lg p-2 sm:p-3 mb-2`}>
-                          <div className={`text-xs ${theme.status.success} mb-1 flex items-center gap-2`}>
+                        <div
+                          className={`${theme.status.success} rounded-lg p-2 sm:p-3 mb-2`}
+                        >
+                          <div
+                            className={`text-xs ${theme.status.success} mb-1 flex items-center gap-2`}
+                          >
                             <CheckCircle size={12} />
                             Success -{" "}
                             {newEndpointTestResult.result.response
@@ -1639,17 +1666,25 @@ const MultipleEndpoints = () => {
 
                           {/* Proxy Information */}
                           {newEndpointTestResult.result.proxy_info && (
-                            <div className={`${theme.status.info} rounded-lg p-2 mb-2`}>
-                              <div className={`text-xs ${theme.status.info} mb-1 flex items-center gap-2`}>
+                            <div
+                              className={`${theme.status.info} rounded-lg p-2 mb-2`}
+                            >
+                              <div
+                                className={`text-xs ${theme.status.info} mb-1 flex items-center gap-2`}
+                              >
                                 <Globe className="w-3 h-3" />
                                 Proxy Information
                               </div>
                               <div className="space-y-1 text-xs">
                                 <div className="flex flex-col sm:flex-row sm:items-center gap-1">
-                                  <span className={`${theme.status.info} font-medium`}>
+                                  <span
+                                    className={`${theme.status.info} font-medium`}
+                                  >
                                     Original:
                                   </span>
-                                  <span className={`${theme.text.primary} font-mono break-all`}>
+                                  <span
+                                    className={`${theme.text.primary} font-mono break-all`}
+                                  >
                                     {
                                       newEndpointTestResult.result.proxy_info
                                         .original_url
@@ -1657,10 +1692,14 @@ const MultipleEndpoints = () => {
                                   </span>
                                 </div>
                                 <div className="flex flex-col sm:flex-row sm:items-center gap-1">
-                                  <span className={`${theme.status.info} font-medium`}>
+                                  <span
+                                    className={`${theme.status.info} font-medium`}
+                                  >
                                     Proxied:
                                   </span>
-                                  <span className={`${theme.text.primary} font-mono break-all`}>
+                                  <span
+                                    className={`${theme.text.primary} font-mono break-all`}
+                                  >
                                     {
                                       newEndpointTestResult.result.proxy_info
                                         .proxied_url
@@ -1671,7 +1710,9 @@ const MultipleEndpoints = () => {
                             </div>
                           )}
 
-                          <div className={`${theme.bg.code} rounded-lg p-3 text-xs max-h-32 overflow-y-auto break-words font-mono ${theme.text.primary}`}>
+                          <div
+                            className={`${theme.bg.code} rounded-lg p-3 text-xs max-h-32 overflow-y-auto break-words font-mono ${theme.text.primary}`}
+                          >
                             {JSON.stringify(
                               newEndpointTestResult.result.response
                                 .response_data,
@@ -1683,12 +1724,18 @@ const MultipleEndpoints = () => {
                       )}
 
                       {newEndpointTestResult.error && (
-                        <div className={`${theme.status.error} rounded-lg p-2 sm:p-3`}>
-                          <div className={`text-xs ${theme.status.error} mb-1 flex items-center gap-2`}>
+                        <div
+                          className={`${theme.status.error} rounded-lg p-2 sm:p-3`}
+                        >
+                          <div
+                            className={`text-xs ${theme.status.error} mb-1 flex items-center gap-2`}
+                          >
                             <AlertTriangle size={12} />
                             Error
                           </div>
-                          <div className={`${theme.bg.code} rounded-lg p-3 text-xs ${theme.status.error} break-words font-mono`}>
+                          <div
+                            className={`${theme.bg.code} rounded-lg p-3 text-xs ${theme.status.error} break-words font-mono`}
+                          >
                             {newEndpointTestResult.error}
                           </div>
                         </div>
@@ -1763,33 +1810,41 @@ const MultipleEndpoints = () => {
                     >
                       <div className="space-y-3 sm:space-y-4">
                         {/* Endpoint Header */}
-                        <div className="flex flex-col sm:flex-row sm:items-start gap-3 sm:gap-4">
+                        <div className={`flex flex-col sm:flex-row sm:items-start gap-3 sm:gap-4 ${editingEndpoint === endpoint.id ? 'ring-2 ring-blue-500 ring-opacity-50 rounded-lg p-2' : ''}`}>
                           <div className="flex-1 min-w-0">
                             <div className="flex flex-wrap items-center gap-2 mb-1">
-                              <h5 className={`font-semibold ${theme.text.primary} text-sm sm:text-base truncate`}>
+                              <h5
+                                className={`font-semibold ${theme.text.primary} text-sm sm:text-base truncate`}
+                              >
                                 {editingEndpoint === endpoint.id ? (
-                                  <input
-                                    type="text"
-                                    value={endpoint.title}
-                                    onChange={(e) =>
-                                      updateEndpointInSuite(endpoint.id, {
-                                        title: e.target.value,
-                                      })
-                                    }
-                                    className={`${theme.bg.input} border ${theme.border.primary} rounded px-2 py-1 ${theme.text.primary} text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-full`}
-                                    onBlur={() => setEditingEndpoint(null)}
-                                    onKeyDown={(e) =>
-                                      e.key === "Enter" &&
-                                      setEditingEndpoint(null)
-                                    }
-                                    autoFocus
-                                  />
+                                  <div className="space-y-1">
+                                    <label className={`text-xs ${theme.text.muted} font-medium`}>
+                                      Title:
+                                    </label>
+                                    <input
+                                      type="text"
+                                      value={endpoint.title}
+                                      onChange={(e) =>
+                                        updateEndpointInSuite(endpoint.id, {
+                                          title: e.target.value,
+                                        })
+                                      }
+                                      className={`${theme.bg.input} border ${theme.border.primary} rounded px-2 py-1 ${theme.text.primary} text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-full`}
+                                      onBlur={() => setEditingEndpoint(null)}
+                                      onKeyDown={(e) =>
+                                        e.key === "Enter" &&
+                                        setEditingEndpoint(null)
+                                      }
+                                      placeholder="Enter endpoint title..."
+                                    />
+                                  </div>
                                 ) : (
                                   <span
                                     onClick={() =>
                                       setEditingEndpoint(endpoint.id)
                                     }
-                                    className="cursor-pointer hover:text-blue-600"
+                                    className="cursor-pointer hover:text-blue-600 transition-colors"
+                                    title="Click to edit title"
                                   >
                                     {endpoint.title}
                                   </span>
@@ -1810,21 +1865,32 @@ const MultipleEndpoints = () => {
                               </span>
                             </div>
                             {editingEndpoint === endpoint.id ? (
-                              <textarea
-                                value={endpoint.description}
-                                onChange={(e) =>
-                                  updateEndpointInSuite(endpoint.id, {
-                                    description: e.target.value,
-                                  })
-                                }
-                                className={`${theme.bg.input} border ${theme.border.primary} rounded px-2 py-1 ${theme.text.primary} text-xs w-full focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none h-16`}
-                                onBlur={() => setEditingEndpoint(null)}
-                                placeholder="Description"
-                              />
+                              <div className="space-y-2">
+                                <label className={`text-xs ${theme.text.muted} font-medium`}>
+                                  Description:
+                                </label>
+                                <textarea
+                                  value={endpoint.description}
+                                  onChange={(e) =>
+                                    updateEndpointInSuite(endpoint.id, {
+                                      description: e.target.value,
+                                    })
+                                  }
+                                  className={`${theme.bg.input} border ${theme.border.primary} rounded px-2 py-1 ${theme.text.primary} text-xs w-full focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none h-16`}
+                                  onBlur={() => setEditingEndpoint(null)}
+                                  placeholder="Enter endpoint description..."
+                                  autoFocus
+                                />
+                                <div className={`text-xs ${theme.text.muted} flex items-center gap-1`}>
+                                  <span>💡</span>
+                                  <span>Press Enter or click outside to save</span>
+                                </div>
+                              </div>
                             ) : (
                               <p
-                                className={`${theme.text.secondary} text-xs sm:text-sm mb-2 cursor-pointer hover:${theme.text.primary}`}
+                                className={`${theme.text.secondary} text-xs sm:text-sm mb-2 cursor-pointer hover:${theme.text.primary} transition-colors`}
                                 onClick={() => setEditingEndpoint(endpoint.id)}
+                                title="Click to edit description"
                               >
                                 {endpoint.description ||
                                   "Click to add description"}
@@ -1873,19 +1939,27 @@ const MultipleEndpoints = () => {
                         </div>
 
                         {/* Reqline Syntax */}
-                        <div className={`${theme.bg.card} rounded-lg p-2 sm:p-3 border ${theme.border.primary}`}>
+                        <div
+                          className={`${theme.bg.card} rounded-lg p-2 sm:p-3 border ${theme.border.primary}`}
+                        >
                           <div className={`text-xs ${theme.status.info} mb-1`}>
                             Reqline Syntax:
                           </div>
-                          <div className={`${theme.bg.code} rounded-lg p-3 text-xs break-words font-mono ${theme.text.primary}`}>
+                          <div
+                            className={`${theme.bg.code} rounded-lg p-3 text-xs break-words font-mono ${theme.text.primary}`}
+                          >
                             {endpoint.reqline}
                           </div>
                         </div>
 
                         {/* Results */}
                         {endpoint.result && (
-                          <div className={`${theme.status.success} rounded-lg p-2 sm:p-3`}>
-                            <div className={`text-xs ${theme.status.success} mb-1 flex flex-col sm:flex-row sm:items-center gap-2`}>
+                          <div
+                            className={`${theme.status.success} rounded-lg p-2 sm:p-3`}
+                          >
+                            <div
+                              className={`text-xs ${theme.status.success} mb-1 flex flex-col sm:flex-row sm:items-center gap-2`}
+                            >
                               <div className="flex items-center gap-2">
                                 <CheckCircle size={12} />
                                 <span>
@@ -1903,7 +1977,9 @@ const MultipleEndpoints = () => {
                                 </span>
                               )}
                             </div>
-                            <div className={`${theme.bg.code} rounded-lg p-3 text-xs max-h-32 overflow-y-auto break-words font-mono ${theme.text.primary}`}>
+                            <div
+                              className={`${theme.bg.code} rounded-lg p-3 text-xs max-h-32 overflow-y-auto break-words font-mono ${theme.text.primary}`}
+                            >
                               {JSON.stringify(
                                 endpoint.result.response.response_data,
                                 null,
@@ -1914,8 +1990,12 @@ const MultipleEndpoints = () => {
                         )}
 
                         {endpoint.error && (
-                          <div className={`${theme.status.error} rounded-lg p-2 sm:p-3`}>
-                            <div className={`text-xs ${theme.status.error} mb-1 flex flex-col sm:flex-row sm:items-center gap-2`}>
+                          <div
+                            className={`${theme.status.error} rounded-lg p-2 sm:p-3`}
+                          >
+                            <div
+                              className={`text-xs ${theme.status.error} mb-1 flex flex-col sm:flex-row sm:items-center gap-2`}
+                            >
                               <div className="flex items-center gap-2">
                                 <AlertTriangle size={12} />
                                 <span>Error</span>
@@ -1930,7 +2010,9 @@ const MultipleEndpoints = () => {
                                 </span>
                               )}
                             </div>
-                            <div className={`${theme.bg.code} rounded-lg p-3 text-xs ${theme.status.error} break-words font-mono`}>
+                            <div
+                              className={`${theme.bg.code} rounded-lg p-3 text-xs ${theme.status.error} break-words font-mono`}
+                            >
                               {endpoint.error}
                             </div>
                           </div>
@@ -1970,7 +2052,9 @@ const MultipleEndpoints = () => {
                     >
                       <div className="flex flex-col sm:flex-row sm:items-center gap-3">
                         <div className="flex-1 min-w-0">
-                          <h5 className={`font-semibold ${theme.text.primary} text-sm mb-1 truncate`}>
+                          <h5
+                            className={`font-semibold ${theme.text.primary} text-sm mb-1 truncate`}
+                          >
                             {suite.title}
                           </h5>
                           <p
@@ -2098,11 +2182,15 @@ const MultipleEndpoints = () => {
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 mb-1">
                               <Key className="w-4 h-4 text-blue-600" />
-                              <h5 className={`font-semibold ${theme.text.primary} text-sm truncate`}>
+                              <h5
+                                className={`font-semibold ${theme.text.primary} text-sm truncate`}
+                              >
                                 {item.name}
                               </h5>
                             </div>
-                            <div className={`${theme.bg.code} rounded-lg p-3 text-xs max-h-16 overflow-y-auto break-words font-mono ${theme.text.primary}`}>
+                            <div
+                              className={`${theme.bg.code} rounded-lg p-3 text-xs max-h-16 overflow-y-auto break-words font-mono ${theme.text.primary}`}
+                            >
                               {item.value}
                             </div>
                             <div className="flex flex-wrap items-center gap-2 mt-2">
